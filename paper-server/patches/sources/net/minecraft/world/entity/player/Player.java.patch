@@ -1,5 +1,13 @@
 --- a/net/minecraft/world/entity/player/Player.java
 +++ b/net/minecraft/world/entity/player/Player.java
+@@ -122,7 +_,6 @@
+ import net.minecraft.world.phys.Vec3;
+ import net.minecraft.world.scores.PlayerTeam;
+ import net.minecraft.world.scores.Scoreboard;
+-import net.minecraft.world.scores.Team;
+ import org.slf4j.Logger;
+ 
+ public abstract class Player extends LivingEntity {
 @@ -178,7 +_,7 @@
      private static final int DEFAULT_CURRENT_IMPULSE_CONTEXT_RESET_GRACE_TIME = 0;
      private long timeEntitySatOnShoulder;
@@ -133,7 +141,14 @@
              }
          }
      }
-@@ -877,7 +_,7 @@
+@@ -873,11 +_,13 @@
+     @Override
+     protected void blockUsingItem(ServerLevel level, LivingEntity entity) {
+         super.blockUsingItem(level, entity);
+-        ItemStack itemBlockingWith = this.getItemBlockingWith();
++        // Paper start - Add EntityBlockingDelayCheckEvent
++        ItemStack itemBlockingWith = this.getItemBlockingWith(io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent.Reason.BLOCK_USING_ITEM);
++        // Paper end - Add EntityBlockingDelayCheckEvent
          BlocksAttacks blocksAttacks = itemBlockingWith != null ? itemBlockingWith.get(DataComponents.BLOCKS_ATTACKS) : null;
          float secondsToDisableBlocking = entity.getSecondsToDisableBlocking();
          if (secondsToDisableBlocking > 0.0F && blocksAttacks != null) {

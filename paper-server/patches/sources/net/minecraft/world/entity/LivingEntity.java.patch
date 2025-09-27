@@ -226,12 +226,17 @@
          });
          this.setSharedFlag(7, input.getBooleanOr("FallFlying", false));
          input.read("sleeping_pos", BlockPos.CODEC).ifPresentOrElse(blockPos -> {
+-            this.setSleepingPos(blockPos);
+-            this.entityData.set(DATA_POSE, Pose.SLEEPING);
+-            if (!this.firstTick) {
+-                this.setPosToBed(blockPos);
+-            }
 +            if (this.position().distanceToSqr(blockPos.getX(), blockPos.getY(), blockPos.getZ()) < Mth.square(16)) { // Paper - The sleeping pos will always also set the actual pos, so a desync suggests something is wrong
-             this.setSleepingPos(blockPos);
-             this.entityData.set(DATA_POSE, Pose.SLEEPING);
-             if (!this.firstTick) {
-                 this.setPosToBed(blockPos);
-             }
++                this.setSleepingPos(blockPos);
++                this.entityData.set(DATA_POSE, Pose.SLEEPING);
++                if (!this.firstTick) {
++                    this.setPosToBed(blockPos);
++                }
 +            } // Paper - The sleeping pos will always also set the actual pos, so a desync suggests something is wrong
          }, this::clearSleepingPos);
          input.read("Brain", Codec.PASSTHROUGH).ifPresent(dynamic -> this.brain = this.makeBrain((Dynamic<?>)dynamic));
@@ -378,11 +383,11 @@
 +            }
 +
 +            if (fireEvent) { // Paper - Don't fire sync event during generation
-+            EntityPotionEffectEvent event = CraftEventFactory.callEntityPotionEffectChangeEvent(this, mobEffectInstance, effectInstance, cause, override);
-+            override = event.isOverride(); // Paper - Don't fire sync event during generation
-+            if (event.isCancelled()) {
-+                return false;
-+            }
++                EntityPotionEffectEvent event = CraftEventFactory.callEntityPotionEffectChangeEvent(this, mobEffectInstance, effectInstance, cause, override);
++                override = event.isOverride(); // Paper - Don't fire sync event during generation
++                if (event.isCancelled()) {
++                    return false;
++                }
 +            } // Paper - Don't fire sync event during generation
 +            // CraftBukkit end
              if (mobEffectInstance == null) {
@@ -397,6 +402,15 @@
                  this.onEffectUpdated(mobEffectInstance, true, entity);
                  flag = true;
              }
+@@ -1007,7 +_,7 @@
+             return this.getType().is(EntityTypeTags.IMMUNE_TO_OOZING)
+                 ? !effectInstance.is(MobEffects.OOZING)
+                 : !this.getType().is(EntityTypeTags.IGNORES_POISON_AND_REGEN)
+-                    || !effectInstance.is(MobEffects.REGENERATION) && !effectInstance.is(MobEffects.POISON);
++                || !effectInstance.is(MobEffects.REGENERATION) && !effectInstance.is(MobEffects.POISON);
+         }
+     }
+ 
 @@ -1029,11 +_,37 @@
  
      @Nullable
@@ -628,7 +642,7 @@
              if (flag2) {
                  this.lastDamageSource = damageSource;
                  this.lastDamageStamp = this.level().getGameTime();
-@@ -1267,6 +_,12 @@
+@@ -1267,10 +_,17 @@
      }
  
      public float applyItemBlocking(ServerLevel level, DamageSource damageSource, float damageAmount) {
@@ -641,21 +655,30 @@
          if (damageAmount <= 0.0F) {
              return 0.0F;
          } else {
+-            ItemStack itemBlockingWith = this.getItemBlockingWith();
++            // Paper - Add EntityBlockingDelayCheckEvent
++            ItemStack itemBlockingWith = this.getItemBlockingWith(io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent.Reason.APPLY_ITEM_BLOCKED);
+             if (itemBlockingWith == null) {
+                 return 0.0F;
+             } else {
 @@ -1291,10 +_,12 @@
                          }
  
                          float f = blocksAttacks.resolveBlockedDamage(damageSource, damageAmount, acos);
-+                        if (!dryRun) { // Paper
-                         blocksAttacks.hurtBlockingItem(this.level(), itemBlockingWith, this, this.getUsedItemHand(), f);
+-                        blocksAttacks.hurtBlockingItem(this.level(), itemBlockingWith, this, this.getUsedItemHand(), f);
 -                        if (!damageSource.is(DamageTypeTags.IS_PROJECTILE) && damageSource.getDirectEntity() instanceof LivingEntity livingEntity) {
-+                        if (!damageSource.is(DamageTypeTags.IS_PROJECTILE) && damageSource.getDirectEntity() instanceof LivingEntity livingEntity && livingEntity.distanceToSqr(this) <= Mth.square(200.0D)) { // Paper - Fix shield disable inconsistency & Check distance in entity interactions
-                             this.blockUsingItem(level, livingEntity);
-                         }
+-                            this.blockUsingItem(level, livingEntity);
+-                        }
++                        if (!dryRun) { // Paper
++                            blocksAttacks.hurtBlockingItem(this.level(), itemBlockingWith, this, this.getUsedItemHand(), f);
++                            if (!damageSource.is(DamageTypeTags.IS_PROJECTILE) && damageSource.getDirectEntity() instanceof LivingEntity livingEntity && livingEntity.distanceToSqr(this) <= Mth.square(200.0D)) { // Paper - Fix shield disable inconsistency & Check distance in entity interactions
++                                this.blockUsingItem(level, livingEntity);
++                            }
 +                        } // Paper
  
                          return f;
                      }
-@@ -1305,6 +_,59 @@
+@@ -1305,6 +_,67 @@
          }
      }
  
@@ -664,7 +687,8 @@
 +        if (damageAmount <= 0.0F) {
 +            return false;
 +        } else {
-+            ItemStack itemBlockingWith = this.getItemBlockingWith();
++            // Paper - Add EntityBlockingDelayCheckEvent
++            ItemStack itemBlockingWith = this.getItemBlockingWith(io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent.Reason.CAN_BLOCK_ATTACK);
 +            if (itemBlockingWith == null) {
 +                return false;
 +            } else {
@@ -694,12 +718,19 @@
 +            acos = (float) Math.PI;
 +        }
 +
-+        BlocksAttacks blocksAttacks = this.getItemBlockingWith().get(DataComponents.BLOCKS_ATTACKS);
++        // Paper - Add EntityBlockingDelayCheckEvent
++        ItemStack itemBlockingWith = this.getItemBlockingWith(io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent.Reason.RESOLVE_BLOCKED_DAMAGE);
++        if (itemBlockingWith == null) return 0.0F;
++
++        BlocksAttacks blocksAttacks = itemBlockingWith.get(DataComponents.BLOCKS_ATTACKS);
++        if (blocksAttacks == null) return 0.0F;
++
 +        return blocksAttacks.resolveBlockedDamage(damageSource, damageAmount, acos);
 +    }
 +
 +    public void blockingItemEffects(ServerLevel level, DamageSource damageSource, float f) {
-+        ItemStack itemBlockingWith = this.getItemBlockingWith();
++        // Paper - Add EntityBlockingDelayCheckEvent
++        ItemStack itemBlockingWith = this.getItemBlockingWith(io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent.Reason.BLOCKING_ITEM_EFFECTS);
 +        if (itemBlockingWith == null) return;
 +
 +        BlocksAttacks blocksAttacks = itemBlockingWith.get(DataComponents.BLOCKS_ATTACKS);
@@ -784,7 +815,7 @@
 +                }
 +                // Paper end - fix NPE when pre-cancelled EntityResurrectEvent is uncancelled
 +                if (itemStack != null && this instanceof final ServerPlayer serverPlayer) {
-+            // CraftBukkit end
++                    // CraftBukkit end
                      serverPlayer.awardStat(Stats.ITEM_USED.get(itemStack.getItem()));
                      CriteriaTriggers.USED_TOTEM.trigger(serverPlayer, itemStack);
                      this.gameEvent(GameEvent.ITEM_INTERACT_FINISH);
@@ -840,20 +871,22 @@
 +                    }
                      this.gameEvent(GameEvent.ENTITY_DIE);
 -                    this.dropAllDeathLoot(serverLevel, damageSource);
+-                    this.createWitherRose(killCredit);
 +                } else {
 +                    this.dead = false;
 +                    this.setHealth((float) deathEvent.getReviveHealth());
-+                }
-+                // Paper end
-                     this.createWitherRose(killCredit);
                  }
++                // Paper end
++                this.createWitherRose(killCredit);
++            }
  
 +            // Paper start
 +            if (this.dead) { // Paper
                  this.level().broadcastEntityEvent(this, (byte)3);
 -            }
  
-             this.setPose(Pose.DYING);
+-            this.setPose(Pose.DYING);
++                this.setPose(Pose.DYING);
 +            }
 +            // Paper end
          }
@@ -931,11 +964,14 @@
 +    public int getExpReward(ServerLevel level, @Nullable Entity entity) { // CraftBukkit
          if (!this.wasExperienceConsumed()
              && (
-                 this.isAlwaysExperienceDropper()
-                     || this.lastHurtByPlayerMemoryTime > 0 && this.shouldDropExperience() && level.getGameRules().getBoolean(GameRules.RULE_DOMOBLOOT)
-             )) {
+-                this.isAlwaysExperienceDropper()
+-                    || this.lastHurtByPlayerMemoryTime > 0 && this.shouldDropExperience() && level.getGameRules().getBoolean(GameRules.RULE_DOMOBLOOT)
+-            )) {
 -            ExperienceOrb.award(level, this.position(), this.getExperienceReward(level, entity));
 -        }
++            this.isAlwaysExperienceDropper()
++                || this.lastHurtByPlayerMemoryTime > 0 && this.shouldDropExperience() && level.getGameRules().getBoolean(GameRules.RULE_DOMOBLOOT)
++        )) {
 +            return this.getExperienceReward(level, entity); // CraftBukkit
 +        }
 +        return 0; // CraftBukkit
@@ -1282,19 +1318,19 @@
      public void setItemSlot(EquipmentSlot slot, ItemStack stack) {
 -        this.onEquipItem(slot, this.equipment.set(slot, stack), stack);
 -    }
-+    // Paper start
++        // Paper start
 +        this.setItemSlot(slot, stack, false);
 +    }
 +    // CraftBukkit start
 +    public void setItemSlot(EquipmentSlot slot, ItemStack stack, boolean silent) {
-+    // Paper end
++        // Paper end
 +        this.onEquipItem(slot, this.equipment.set(slot, stack), stack, silent);
 +    }
 +
  
      public float getArmorCoverPercentage() {
          int i = 0;
-@@ -2213,14 +_,27 @@
+@@ -2213,15 +_,28 @@
          return this.hasEffect(MobEffects.JUMP_BOOST) ? 0.1F * (this.getEffect(MobEffects.JUMP_BOOST).getAmplifier() + 1.0F) : 0.0F;
      }
  
@@ -1318,17 +1354,21 @@
              this.setDeltaMovement(deltaMovement.x, Math.max((double)jumpPower, deltaMovement.y), deltaMovement.z);
              if (this.isSprinting()) {
                  float f = this.getYRot() * (float) (Math.PI / 180.0);
+-                this.addDeltaMovement(new Vec3(-Mth.sin(f) * 0.2, 0.0, Mth.cos(f) * 0.2));
 +                if (canCrit) // Paper - Prevent excessive velocity through repeated crits
-                 this.addDeltaMovement(new Vec3(-Mth.sin(f) * 0.2, 0.0, Mth.cos(f) * 0.2));
++                    this.addDeltaMovement(new Vec3(-Mth.sin(f) * 0.2, 0.0, Mth.cos(f) * 0.2));
              }
  
+             this.hasImpulse = true;
 @@ -2380,8 +_,10 @@
      }
  
      public void stopFallFlying() {
+-        this.setSharedFlag(7, true);
+-        this.setSharedFlag(7, false);
 +        if (!org.bukkit.craftbukkit.event.CraftEventFactory.callToggleGlideEvent(this, false).isCancelled()) { // Paper
-         this.setSharedFlag(7, true);
-         this.setSharedFlag(7, false);
++            this.setSharedFlag(7, true);
++            this.setSharedFlag(7, false);
 +        } // Paper
      }
  
@@ -1451,9 +1491,11 @@
              if (!flag || this.onGround() && !(fluidHeight > fluidJumpThreshold)) {
                  if (!this.isInLava() || this.onGround() && !(fluidHeight > fluidJumpThreshold)) {
                      if ((this.onGround() || flag && fluidHeight <= fluidJumpThreshold) && this.noJumpDelay == 0) {
+-                        this.jumpFromGround();
+-                        this.noJumpDelay = 10;
 +                        if (new com.destroystokyo.paper.event.entity.EntityJumpEvent(getBukkitLivingEntity()).callEvent()) { // Paper - Entity Jump API
-                         this.jumpFromGround();
-                         this.noJumpDelay = 10;
++                            this.jumpFromGround();
++                            this.noJumpDelay = 10;
 +                        } else { this.setJumping(false); } // Paper - Entity Jump API; setJumping(false) stops a potential loop
                      }
                  } else {
@@ -1488,14 +1530,16 @@
          if (this.level() instanceof ServerLevel serverLevel && this.isSensitiveToWater() && this.isInWaterOrRain()) {
              this.hurtServer(serverLevel, this.damageSources().drown(), 1.0F);
          }
-@@ -2887,6 +_,7 @@
+@@ -2887,7 +_,8 @@
          this.checkFallDistanceAccumulation();
          if (!this.level().isClientSide) {
              if (!this.canGlide()) {
+-                this.setSharedFlag(7, false);
 +                if (this.getSharedFlag(7) != false && !CraftEventFactory.callToggleGlideEvent(this, false).isCancelled()) // CraftBukkit
-                 this.setSharedFlag(7, false);
++                    this.setSharedFlag(7, false);
                  return;
              }
+ 
 @@ -2926,10 +_,25 @@
      }
  
@@ -1785,7 +1829,7 @@
              this.useItem.releaseUsing(this.level(), this, this.getUseItemRemainingTicks());
              if (this.useItem.useOnRelease()) {
                  this.updatingUsingItem();
-@@ -3313,7 +_,10 @@
+@@ -3313,22 +_,40 @@
          }
  
          this.useItem = ItemStack.EMPTY;
@@ -1796,11 +1840,45 @@
 +        // Paper end - lag compensate eating
      }
  
++    // Paper start - Add EntityBlockingDelayCheckEvent
      public boolean isBlocking() {
-@@ -3337,6 +_,60 @@
-         }
+-        return this.getItemBlockingWith() != null;
++        return this.getItemBlockingWith(io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent.Reason.IS_BLOCKING) != null;
      }
  
+     @Nullable
+     public ItemStack getItemBlockingWith() {
++        return this.getItemBlockingWith(null);
++    }
++
++    @Nullable
++    public ItemStack getItemBlockingWith(@Nullable io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent.Reason reason) {
+         if (!this.isUsingItem()) {
+             return null;
+         } else {
+             BlocksAttacks blocksAttacks = this.useItem.get(DataComponents.BLOCKS_ATTACKS);
+             if (blocksAttacks != null) {
+                 int i = this.useItem.getItem().getUseDuration(this.useItem, this) - this.useItemRemaining;
+-                if (i >= blocksAttacks.blockDelayTicks()) {
++                int d = blocksAttacks.blockDelayTicks();
++                if (reason != null) {
++                    io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent event = new io.papermc.paper.event.entity.EntityBlockingDelayCheckEvent(getBukkitLivingEntity(), this.useItem.getBukkitStack(), i, blocksAttacks.blockDelayTicks(), reason);
++                    event.callEvent();
++                    d = event.getBlockingDelay();
++                    if (this.useItem.get(DataComponents.BLOCKS_ATTACKS) == null) {
++                        return null; // Blocks attacks component removed during event, maybe?
++                    }
++                }
++                if (i >= d) {
+                     return this.useItem;
+                 }
+             }
+@@ -3336,6 +_,61 @@
+             return null;
+         }
+     }
++    // Paper end - Add EntityBlockingDelayCheckEvent
++
 +    // CraftBukkit start
 +    @Override
 +    public float getBukkitYaw() {
@@ -1854,10 +1932,9 @@
 +        return result;
 +    }
 +    // Paper end
-+
+ 
      public boolean isSuppressingSlidingDownLadder() {
          return this.isShiftKeyDown();
-     }
 @@ -3355,6 +_,12 @@
      }
  
