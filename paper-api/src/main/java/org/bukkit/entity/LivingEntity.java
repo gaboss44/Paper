@@ -854,6 +854,8 @@ public interface LivingEntity extends Attributable, Damageable, ProjectileSource
      */
     public void attack(@NotNull Entity target);
 
+    public void attack(@NotNull Entity target, boolean offHand);
+
     /**
      * Makes this entity swing their main hand.
      *

@@ -112,6 +112,27 @@
              this.removeEntitiesOnShoulder();
          }
      }
+@@ -663,11 +_,18 @@
+         }
+     }
+ 
++    // Paper start - optional off-handed attack
+     @Nonnull
+     @Override
+     public ItemStack getWeaponItem() {
+-        return this.isAutoSpinAttack() && this.autoSpinAttackItemStack != null ? this.autoSpinAttackItemStack : super.getWeaponItem();
+-    }
++        return this.getWeaponItem(false);
++    }
++
++    @Nonnull
++    public ItemStack getWeaponItem(boolean offHand) {
++        return this.isAutoSpinAttack() && this.autoSpinAttackItemStack != null ? this.autoSpinAttackItemStack : super.getWeaponItem(offHand);
++    }
++    // Paper end - optional off-handed attack
+ 
+     @Override
+     public void die(DamageSource cause) {
 @@ -850,10 +_,10 @@
              if (this.isDeadOrDying()) {
                  return false;
@@ -243,12 +264,18 @@
      }
  
      @Override
-@@ -1094,8 +_,17 @@
+@@ -1093,28 +_,49 @@
+             );
      }
  
++    // Paper - optional off-handed attack
      public void attack(Entity target) {
 -        if (target.isAttackable()) {
 -            if (!target.skipAttackInteraction(this)) {
++        this.attack(target, false);
++    }
++
++    public void attack(Entity target, boolean offHand) {
 +        // Paper start - PlayerAttackEntityEvent
 +        boolean willAttack = target.isAttackable() && !target.skipAttackInteraction(this); // Vanilla logic
 +        io.papermc.paper.event.player.PrePlayerAttackEntityEvent playerAttackEntityEvent = new io.papermc.paper.event.player.PrePlayerAttackEntityEvent(
@@ -261,9 +288,10 @@
 +            {
 +        // Paper end - PlayerAttackEntityEvent
                  float f = this.isAutoSpinAttack() ? this.autoSpinAttackDmg : (float)this.getAttributeValue(Attributes.ATTACK_DAMAGE);
-                 ItemStack weaponItem = this.getWeaponItem();
+-                ItemStack weaponItem = this.getWeaponItem();
++                ItemStack weaponItem = this.getWeaponItem(offHand); // Paper - optional off-handed attack
                  DamageSource damageSource = Optional.ofNullable(weaponItem.getItem().getDamageSource(this)).orElse(this.damageSources().playerAttack(this));
-@@ -1103,18 +_,25 @@
+                 float f1 = this.getEnchantedDamage(target, f, damageSource) - f;
                  float attackStrengthScale = this.getAttackStrengthScale(0.5F);
                  f *= 0.2F + attackStrengthScale * attackStrengthScale * 0.8F;
                  f1 *= attackStrengthScale;
@@ -296,16 +324,28 @@
                              flag1 = true;
                          } else {
                              flag1 = false;
-@@ -1130,7 +_,9 @@
+@@ -1130,9 +_,20 @@
                              && !this.isPassenger()
                              && target instanceof LivingEntity
                              && !this.isSprinting();
 +                        flag2 = flag2 && !this.level().paperConfig().entities.behavior.disablePlayerCrits; // Paper - Toggleable player crits
++                        // Paper start - Critical hit API
++                        io.papermc.paper.event.player.PlayerAttackEntityCriticalCheckEvent critCheckEvent = new io.papermc.paper.event.player.PlayerAttackEntityCriticalCheckEvent(
++                            (org.bukkit.entity.Player) this.getBukkitEntity(),
++                            target.getBukkitEntity(),
++                            weaponItem.getBukkitStack().clone(),
++                            f, f1, attackStrengthScale, flag2, 1.5f);
++                        critCheckEvent.callEvent();
++                        flag2 = critCheckEvent.isCritical();
                          if (flag2) {
+-                            f *= 1.5F;
 +                            damageSource = damageSource.critical(); // Paper - critical damage API
-                             f *= 1.5F;
++                            f *= critCheckEvent.getCriticalMultiplier();
                          }
++                        // Paper end - Critical hit API
  
+                         float f2 = f + f1;
+                         boolean flag3 = false;
 @@ -1157,17 +_,23 @@
                                  if (target instanceof LivingEntity livingEntity1) {
                                      livingEntity1.knockback(

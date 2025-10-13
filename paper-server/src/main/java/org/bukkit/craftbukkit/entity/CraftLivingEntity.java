@@ -849,13 +849,20 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
         return (this.getHandle() instanceof Mob) ? !((Mob) this.getHandle()).isNoAi() : false;
     }
 
+    // Paper - optional off-handed attack
     @Override
     public void attack(Entity target) {
+        this.attack(target, false);
+    }
+
+    // Paper - optional off-handed attack
+    @Override
+    public void attack(Entity target, boolean offHand) {
         Preconditions.checkArgument(target != null, "target == null");
         Preconditions.checkState(!this.getHandle().generation, "Cannot attack during world generation");
 
         if (this.getHandle() instanceof net.minecraft.world.entity.player.Player) {
-            ((net.minecraft.world.entity.player.Player) this.getHandle()).attack(((CraftEntity) target).getHandle());
+            ((net.minecraft.world.entity.player.Player) this.getHandle()).attack(((CraftEntity) target).getHandle(), offHand);
         } else {
             this.getHandle().doHurtTarget((ServerLevel) ((CraftEntity) target).getHandle().level(), ((CraftEntity) target).getHandle());
         }

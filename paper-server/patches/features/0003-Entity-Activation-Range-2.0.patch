@@ -543,10 +543,10 @@ index c925fb790dec8090c853099a405ea0712e2a580e..cf09e392ecf1a8cc7908fad3e9f3688f
              movement = this.maybeBackOffFromEdge(movement, type);
              Vec3 vec3 = this.collide(movement);
 diff --git a/net/minecraft/world/entity/LivingEntity.java b/net/minecraft/world/entity/LivingEntity.java
-index 89bc2e8e3da08c05d5397afb4a188659fed0fc35..b5e2ed491a80d18cd2fe6728a0d2d0224d2dc33e 100644
+index a329a6ac881280008f28b5fa3a3d12e6410fa378..97a4bfdc0f7d49fb761d28a8d7febd5ce1cf74b7 100644
 --- a/net/minecraft/world/entity/LivingEntity.java
 +++ b/net/minecraft/world/entity/LivingEntity.java
-@@ -3224,6 +3224,14 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+@@ -3231,6 +3231,14 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
          return false;
      }
  
