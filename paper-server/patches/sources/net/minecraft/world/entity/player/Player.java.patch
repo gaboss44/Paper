@@ -112,7 +112,7 @@
              this.removeEntitiesOnShoulder();
          }
      }
-@@ -663,11 +_,18 @@
+@@ -663,11 +_,19 @@
          }
      }
  
@@ -126,6 +126,7 @@
 +    }
 +
 +    @Nonnull
++    @Override
 +    public ItemStack getWeaponItem(boolean offHand) {
 +        return this.isAutoSpinAttack() && this.autoSpinAttackItemStack != null ? this.autoSpinAttackItemStack : super.getWeaponItem(offHand);
 +    }
@@ -611,6 +612,23 @@
      }
  
      @Nullable
+@@ -1905,6 +_,16 @@
+         return Mth.clamp((this.attackStrengthTicker + adjustTicks) / this.getCurrentItemAttackStrengthDelay(), 0.0F, 1.0F);
+     }
+ 
++    // Paper start - attack strength ticker API
++    public int getAttackStrengthTicker() {
++        return this.attackStrengthTicker;
++    }
++
++    public void setAttackStrengthTicker(int ticks) {
++        this.attackStrengthTicker = ticks;
++    }
++    // Paper end - attack strength ticker API
++
+     public void resetAttackStrengthTicker() {
+         this.attackStrengthTicker = 0;
+     }
 @@ -1945,17 +_,32 @@
          return ImmutableList.of(Pose.STANDING, Pose.CROUCHING, Pose.SWIMMING);
      }

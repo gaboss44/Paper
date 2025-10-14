@@ -3521,6 +3521,10 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
      */
     float getCooledAttackStrength(float adjustTicks);
 
+    int getAttackStrengthTicker();
+
+    void setAttackStrengthTicker(int ticks);
+
     /**
      * Reset the cooldown counter to 0, effectively starting the cooldown period.
      */

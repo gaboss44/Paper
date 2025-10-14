@@ -3253,6 +3253,16 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
     }
 
     @Override
+    public int getAttackStrengthTicker() {
+        return this.getHandle().getAttackStrengthTicker();
+    }
+
+    @Override
+    public void setAttackStrengthTicker(int ticks) {
+        this.getHandle().setAttackStrengthTicker(ticks);
+    }
+
+    @Override
     public void resetCooldown() {
         getHandle().resetAttackStrengthTicker();
     }

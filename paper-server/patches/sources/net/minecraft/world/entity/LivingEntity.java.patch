@@ -1319,7 +1319,7 @@
 +    // Paper start - optional off-handed attack
 +    @Nonnull
 +    public ItemStack getWeaponItem(boolean offHand) {
-+        return offHand ? this.getOffhandItem() : this.getWeaponItem();
++        return offHand ? this.getOffhandItem() : this.getMainHandItem();
 +    }
 +    // Paper end - optional off-handed attack
 +
