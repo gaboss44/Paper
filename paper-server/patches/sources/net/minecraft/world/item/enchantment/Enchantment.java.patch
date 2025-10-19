@@ -1,0 +1,103 @@
+--- a/net/minecraft/world/item/enchantment/Enchantment.java
++++ b/net/minecraft/world/item/enchantment/Enchantment.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.item.enchantment;
+ 
++import org.jetbrains.annotations.Nullable;
+ import com.google.common.collect.Maps;
+ import com.mojang.serialization.Codec;
+ import com.mojang.serialization.MapCodec;
+@@ -286,9 +_,17 @@
+     public void doPostAttack(
+         ServerLevel level, int enchantmentLevel, EnchantedItemInUse item, EnchantmentTarget target, Entity entity, DamageSource damageSource
+     ) {
++        io.papermc.paper.event.entity.EntityEnchantedItemPostAttackEffectsEvent event = new io.papermc.paper.event.entity.EntityEnchantedItemPostAttackEffectsEvent(
++            entity.getBukkitEntity(), new org.bukkit.craftbukkit.damage.CraftDamageSource(damageSource), item.itemStack().asBukkitCopy(),
++            org.bukkit.craftbukkit.enchantments.CraftEnchantment.minecraftToBukkit(this), enchantmentLevel,
++            Optional.ofNullable(item.owner()).map(LivingEntity::getBukkitLivingEntity).orElse(null),
++            Optional.ofNullable(item.inSlot()).map(EquipmentSlot::asBukkit).orElse(null)
++        );
++        event.callEvent();
++        if (event.isCancelled()) return;
+         for (TargetedConditionalEffect<EnchantmentEntityEffect> targetedConditionalEffect : this.getEffects(EnchantmentEffectComponents.POST_ATTACK)) {
+             if (target == targetedConditionalEffect.enchanted()) {
+-                doPostAttack(targetedConditionalEffect, level, enchantmentLevel, item, entity, damageSource);
++                doPostAttack(targetedConditionalEffect, level, event.getOverrideLevel(), item, entity, damageSource, event);
+             }
+         }
+     }
+@@ -313,6 +_,27 @@
+         }
+     }
+ 
++    public static void doPostAttack(
++        TargetedConditionalEffect<EnchantmentEntityEffect> effect,
++        ServerLevel level,
++        int enchantmentLevel,
++        EnchantedItemInUse item,
++        Entity entity,
++        DamageSource damageSource,
++        io.papermc.paper.event.entity.EntityEnchantedItemPostAttackEffectsEvent event
++    ) {
++        if (event.getContextResult().getBoolOrElse(() -> effect.matches(damageContext(level, enchantmentLevel, entity, damageSource)))) {
++            Entity entity1 = switch (effect.affected()) {
++                case ATTACKER -> damageSource.getEntity();
++                case DAMAGING_ENTITY -> damageSource.getDirectEntity();
++                case VICTIM -> entity;
++            };
++            if (entity1 != null) {
++                effect.effect().apply(level, enchantmentLevel, item, entity1, entity1.position());
++            }
++        }
++    }
++
+     public void modifyProjectileCount(ServerLevel level, int enchantmentLevel, ItemStack tool, Entity entity, MutableFloat projectileCount) {
+         this.modifyEntityFilteredValue(EnchantmentEffectComponents.PROJECTILE_COUNT, level, enchantmentLevel, tool, entity, projectileCount);
+     }
+@@ -459,13 +_,24 @@
+     }
+ 
+     public void runLocationChangedEffects(ServerLevel level, int enchantmentLevel, EnchantedItemInUse item, LivingEntity entity) {
++
++        io.papermc.paper.event.entity.EntityEnchantedItemLocationChangedEffectsEvent event = new io.papermc.paper.event.entity.EntityEnchantedItemLocationChangedEffectsEvent(
++            entity.getBukkitLivingEntity(), item.itemStack().asBukkitCopy(),
++            org.bukkit.craftbukkit.enchantments.CraftEnchantment.minecraftToBukkit(this), enchantmentLevel,
++            Optional.ofNullable(item.owner()).map(LivingEntity::getBukkitLivingEntity).orElse(null),
++            Optional.ofNullable(item.inSlot()).map(EquipmentSlot::asBukkit).orElse(null)
++        );
++
++        event.callEvent();
++        if (event.isCancelled()) return;
++
+         EquipmentSlot equipmentSlot = item.inSlot();
+         if (equipmentSlot != null) {
+             Map<Enchantment, Set<EnchantmentLocationBasedEffect>> map = entity.activeLocationDependentEnchantments(equipmentSlot);
+             if (!this.matchingSlot(equipmentSlot)) {
+                 Set<EnchantmentLocationBasedEffect> set = map.remove(this);
+                 if (set != null) {
+-                    set.forEach(effect -> effect.onDeactivated(item, entity, entity.position(), enchantmentLevel));
++                    set.forEach(effect -> effect.onDeactivated(item, entity, entity.position(), event.getOverrideLevel()));
+                 }
+             } else {
+                 Set<EnchantmentLocationBasedEffect> set = map.get(this);
+@@ -473,7 +_,7 @@
+                 for (ConditionalEffect<EnchantmentLocationBasedEffect> conditionalEffect : this.getEffects(EnchantmentEffectComponents.LOCATION_CHANGED)) {
+                     EnchantmentLocationBasedEffect enchantmentLocationBasedEffect = conditionalEffect.effect();
+                     boolean flag = set != null && set.contains(enchantmentLocationBasedEffect);
+-                    if (conditionalEffect.matches(locationContext(level, enchantmentLevel, entity, flag))) {
++                    if (event.getContextResult().getBoolOrElse(() -> conditionalEffect.matches(locationContext(level, event.getOverrideLevel(), entity, flag)))) {
+                         if (!flag) {
+                             if (set == null) {
+                                 set = new ObjectArraySet<>();
+@@ -483,9 +_,9 @@
+                             set.add(enchantmentLocationBasedEffect);
+                         }
+ 
+-                        enchantmentLocationBasedEffect.onChangedBlock(level, enchantmentLevel, item, entity, entity.position(), !flag);
++                        enchantmentLocationBasedEffect.onChangedBlock(level, event.getOverrideLevel(), item, entity, entity.position(), !flag);
+                     } else if (set != null && set.remove(enchantmentLocationBasedEffect)) {
+-                        enchantmentLocationBasedEffect.onDeactivated(item, entity, entity.position(), enchantmentLevel);
++                        enchantmentLocationBasedEffect.onDeactivated(item, entity, entity.position(), event.getOverrideLevel());
+                     }
+                 }
+ 

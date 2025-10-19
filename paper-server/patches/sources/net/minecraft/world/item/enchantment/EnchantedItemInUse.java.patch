@@ -1,0 +1,72 @@
+--- a/net/minecraft/world/item/enchantment/EnchantedItemInUse.java
++++ b/net/minecraft/world/item/enchantment/EnchantedItemInUse.java
+@@ -6,9 +_,67 @@
+ import net.minecraft.world.entity.LivingEntity;
+ import net.minecraft.world.item.Item;
+ import net.minecraft.world.item.ItemStack;
+-
+-public record EnchantedItemInUse(ItemStack itemStack, @Nullable EquipmentSlot inSlot, @Nullable LivingEntity owner, Consumer<Item> onBreak) {
++import net.minecraft.core.Holder;
++import net.minecraft.world.item.enchantment.Enchantment;
++
++// public record EnchantedItemInUse(ItemStack itemStack, @Nullable EquipmentSlot inSlot, @Nullable LivingEntity owner, Consumer<Item> onBreak) {
++//     public EnchantedItemInUse(ItemStack itemStack, EquipmentSlot inSlot, LivingEntity owner) {
++//         this(itemStack, inSlot, owner, item -> owner.onEquippedItemBroken(item, inSlot));
++//     }
++// }
++
++public sealed class EnchantedItemInUse {
++    private final ItemStack itemStack;
++    @Nullable
++    private final EquipmentSlot inSlot;
++    @Nullable
++    private final LivingEntity owner;
++    private final Consumer<Item> onBreak;
++
++    public EnchantedItemInUse(ItemStack itemStack, @Nullable EquipmentSlot inSlot, @Nullable LivingEntity owner, Consumer<Item> onBreak) {
++        this.itemStack = itemStack;
++        this.inSlot = inSlot;
++        this.owner = owner;
++        this.onBreak = onBreak;
++    }
++
+     public EnchantedItemInUse(ItemStack itemStack, EquipmentSlot inSlot, LivingEntity owner) {
+         this(itemStack, inSlot, owner, item -> owner.onEquippedItemBroken(item, inSlot));
++    }
++
++    public ItemStack itemStack() {
++        return this.itemStack;
++    }
++
++    @Nullable
++    public EquipmentSlot inSlot() {
++        return this.inSlot;
++    }
++
++    @Nullable
++    public LivingEntity owner() {
++        return this.owner;
++    }
++
++    public Consumer<Item> onBreak() {
++        return this.onBreak;
++    }
++
++    public WithHolder withHolder(Holder<Enchantment> holder) {
++        return new EnchantedItemInUse.WithHolder(this.itemStack, this.inSlot, this.owner, this.onBreak, holder);
++    }
++
++    public static final class WithHolder extends EnchantedItemInUse {
++
++        private final Holder<Enchantment> holder;
++
++        private WithHolder(ItemStack itemStack, @Nullable EquipmentSlot inSlot, @Nullable LivingEntity owner, Consumer<Item> onBreak, Holder<Enchantment> holder) {
++            super(itemStack, inSlot, owner, onBreak);
++            this.holder = holder;
++        }
++
++        public Holder<Enchantment> getHolder() {
++            return holder;
++        }
+     }
+ }

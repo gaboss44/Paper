@@ -265,7 +265,7 @@
      }
  
      @Override
-@@ -1093,28 +_,49 @@
+@@ -1093,34 +_,68 @@
              );
      }
  
@@ -277,6 +277,15 @@
 +    }
 +
 +    public void attack(Entity target, boolean offHand) {
++        this.currentAttackSlot = offHand ? EquipmentSlot.OFFHAND : EquipmentSlot.MAINHAND;
++        try {
++            doAttack(target, offHand);
++        } finally {
++            this.currentAttackSlot = null;
++        }
++    }
++
++    public void doAttack(Entity target, boolean offHand) {
 +        // Paper start - PlayerAttackEntityEvent
 +        boolean willAttack = target.isAttackable() && !target.skipAttackInteraction(this); // Vanilla logic
 +        io.papermc.paper.event.player.PrePlayerAttackEntityEvent playerAttackEntityEvent = new io.papermc.paper.event.player.PrePlayerAttackEntityEvent(
@@ -290,9 +299,11 @@
 +        // Paper end - PlayerAttackEntityEvent
                  float f = this.isAutoSpinAttack() ? this.autoSpinAttackDmg : (float)this.getAttributeValue(Attributes.ATTACK_DAMAGE);
 -                ItemStack weaponItem = this.getWeaponItem();
+-                DamageSource damageSource = Optional.ofNullable(weaponItem.getItem().getDamageSource(this)).orElse(this.damageSources().playerAttack(this));
+-                float f1 = this.getEnchantedDamage(target, f, damageSource) - f;
 +                ItemStack weaponItem = this.getWeaponItem(offHand); // Paper - optional off-handed attack
-                 DamageSource damageSource = Optional.ofNullable(weaponItem.getItem().getDamageSource(this)).orElse(this.damageSources().playerAttack(this));
-                 float f1 = this.getEnchantedDamage(target, f, damageSource) - f;
++                DamageSource damageSource = Optional.ofNullable(weaponItem.getItem().getDamageSource(this, weaponItem)).orElse(this.damageSources().playerAttack(this)).weaponItem(weaponItem);
++                float f1 = this.getEnchantedDamage(target, weaponItem, f, damageSource) - f;
                  float attackStrengthScale = this.getAttackStrengthScale(0.5F);
                  f *= 0.2F + attackStrengthScale * attackStrengthScale * 0.8F;
                  f1 *= attackStrengthScale;
@@ -325,7 +336,18 @@
                              flag1 = true;
                          } else {
                              flag1 = false;
-@@ -1130,9 +_,20 @@
+                         }
+ 
+-                        f += weaponItem.getItem().getAttackDamageBonus(target, f, damageSource);
++                        if (weaponItem.getItem() instanceof net.minecraft.world.item.MaceItem maceItem) {
++                            f += maceItem.getAttackDamageBonus(target, f, damageSource, weaponItem);
++                        } else {
++                            f += weaponItem.getItem().getAttackDamageBonus(target, f, damageSource);
++                        }
+                         boolean flag2 = flag
+                             && this.fallDistance > 0.0
+                             && !this.onGround()
+@@ -1130,16 +_,27 @@
                              && !this.isPassenger()
                              && target instanceof LivingEntity
                              && !this.isSprinting();
@@ -347,7 +369,21 @@
  
                          float f2 = f + f1;
                          boolean flag3 = false;
-@@ -1157,17 +_,23 @@
+                         if (flag && !flag2 && !flag1 && this.onGround()) {
+                             double d = this.getKnownMovement().horizontalDistanceSqr();
+                             double d1 = this.getSpeed() * 2.5;
+-                            if (d < Mth.square(d1) && this.getItemInHand(InteractionHand.MAIN_HAND).is(ItemTags.SWORDS)) {
++                            if (d < Mth.square(d1) && this.getItemInHand(offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND).is(ItemTags.SWORDS)) {
+                                 flag3 = true;
+                             }
+                         }
+@@ -1152,22 +_,28 @@
+                         Vec3 deltaMovement = target.getDeltaMovement();
+                         boolean flag4 = target.hurtOrSimulate(damageSource, f2);
+                         if (flag4) {
+-                            float f4 = this.getKnockback(target, damageSource) + (flag1 ? 1.0F : 0.0F);
++                            float f4 = this.getKnockback(target, damageSource, weaponItem) + (flag1 ? 1.0F : 0.0F);
+                             if (f4 > 0.0F) {
                                  if (target instanceof LivingEntity livingEntity1) {
                                      livingEntity1.knockback(
                                          f4 * 0.5F, Mth.sin(this.getYRot() * (float) (Math.PI / 180.0)), -Mth.cos(this.getYRot() * (float) (Math.PI / 180.0))
@@ -371,11 +407,13 @@
                              }
  
                              if (flag3) {
-@@ -1181,42 +_,59 @@
+@@ -1180,43 +_,60 @@
+                                         && !this.isAlliedTo(livingEntity2)
                                          && !(livingEntity2 instanceof ArmorStand armorStand && armorStand.isMarker())
                                          && this.distanceToSqr(livingEntity2) < 9.0) {
-                                         float f6 = this.getEnchantedDamage(livingEntity2, f5, damageSource) * attackStrengthScale;
+-                                        float f6 = this.getEnchantedDamage(livingEntity2, f5, damageSource) * attackStrengthScale;
 -                                        if (this.level() instanceof ServerLevel serverLevel && livingEntity2.hurtServer(serverLevel, damageSource, f6)) {
++                                        float f6 = this.getEnchantedDamage(livingEntity2, weaponItem, f5, damageSource) * attackStrengthScale;
 +                                        // Paper start - Only apply knockback if the event is not cancelled
 +                                        livingEntity2.lastDamageCancelled = false;
 +                                        if (this.level() instanceof ServerLevel serverLevel && livingEntity2.hurtServer(serverLevel, damageSource.knownCause(org.bukkit.event.entity.EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK), f6) && !livingEntity2.lastDamageCancelled) {
@@ -384,7 +422,8 @@
                                                  0.4F, Mth.sin(this.getYRot() * (float) (Math.PI / 180.0)), -Mth.cos(this.getYRot() * (float) (Math.PI / 180.0))
 +                                                    , this, io.papermc.paper.event.entity.EntityKnockbackEvent.Cause.SWEEP_ATTACK // Paper - knockback events
                                              );
-                                             EnchantmentHelper.doPostAttackEffects(serverLevel, livingEntity2, damageSource);
+-                                            EnchantmentHelper.doPostAttackEffects(serverLevel, livingEntity2, damageSource);
++                                            EnchantmentHelper.doPostAttackEffectsWithItemSource(serverLevel, livingEntity2, damageSource, weaponItem);
                                          }
                                      }
                                  }
@@ -442,6 +481,15 @@
                                          );
                                  }
                              }
+@@ -1237,7 +_,7 @@
+                                     flag5 = weaponItem.hurtEnemy(livingEntity2x, this);
+                                 }
+ 
+-                                EnchantmentHelper.doPostAttackEffects(serverLevel1, target, damageSource);
++                                EnchantmentHelper.doPostAttackEffectsWithItemSource(serverLevel1, target, damageSource, weaponItem);
+                             }
+ 
+                             if (!this.level().isClientSide && !weaponItem.isEmpty() && entity instanceof LivingEntity) {
 @@ -1264,10 +_,10 @@
                                  }
                              }
@@ -456,6 +504,17 @@
                          }
                      }
                  }
+@@ -1279,6 +_,10 @@
+         return damage;
+     }
+ 
++    protected float getEnchantedDamage(net.minecraft.world.entity.Entity entity, net.minecraft.world.item.ItemStack stack, float damage, net.minecraft.world.damagesource.DamageSource damageSource) {
++        return damage;
++    }
++
+     @Override
+     protected void doAutoAttackOnTouch(LivingEntity target) {
+         this.attack(target);
 @@ -1302,8 +_,8 @@
      }
  

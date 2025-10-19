@@ -1,0 +1,63 @@
+--- a/net/minecraft/world/item/enchantment/Enchantments.java
++++ b/net/minecraft/world/item/enchantment/Enchantments.java
+@@ -3,6 +_,7 @@
+ import java.util.List;
+ import java.util.Optional;
+ import java.util.function.Function;
++import java.util.function.BiFunction;
+ import net.minecraft.advancements.critereon.DamageSourcePredicate;
+ import net.minecraft.advancements.critereon.EntityFlagsPredicate;
+ import net.minecraft.advancements.critereon.EntityPredicate;
+@@ -31,6 +_,8 @@
+ import net.minecraft.world.damagesource.DamageType;
+ import net.minecraft.world.damagesource.DamageTypes;
+ import net.minecraft.world.effect.MobEffects;
++import net.minecraft.world.entity.Entity;
++import net.minecraft.world.entity.LivingEntity;
+ import net.minecraft.world.entity.EntityType;
+ import net.minecraft.world.entity.EquipmentSlotGroup;
+ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+@@ -1172,7 +_,9 @@
+                         Enchantment.dynamicCost(15, 9),
+                         Enchantment.dynamicCost(65, 9),
+                         4,
+-                        EquipmentSlotGroup.MAINHAND
++                        EquipmentSlotGroup.HAND,
++                        EquipmentSlotGroup.MAINHAND,
++                        EquipmentSlotGroup.OFFHAND
+                     )
+                 )
+                 .withEffect(
+@@ -1196,7 +_,12 @@
+                         LootContext.EntityTarget.DIRECT_ATTACKER,
+                         EntityPredicate.Builder.entity()
+                             .flags(EntityFlagsPredicate.Builder.flags().setIsFlying(false))
+-                            .moving(MovementPredicate.fallDistance(MinMaxBounds.Doubles.atLeast(1.5)))
++                            .moving(
++                                MovementPredicate.fallDistance(MinMaxBounds.Doubles
++                                    .atLeast(1.5)
++                                    .withMatcher(WIND_BURST_MATCHER_DOUBLE)
++                                )
++                            )
+                     )
+                 )
+         );
+@@ -1241,4 +_,18 @@
+     private static ResourceKey<Enchantment> key(String name) {
+         return ResourceKey.create(Registries.ENCHANTMENT, ResourceLocation.withDefaultNamespace(name));
+     }
++
++    public static final BiFunction<Double, MinMaxBounds.Doubles.CompiledInput, Boolean> WIND_BURST_MATCHER_DOUBLE = (value, input) -> {
++        Entity entity = input.getEntity();
++        if (entity instanceof LivingEntity livingEntity) {
++            io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent event =
++                new io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent(
++                    livingEntity.getBukkitLivingEntity(), null, livingEntity.getWeaponItem().asBukkitCopy(), value,
++                    io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent.Reason.WIND_BURST_CHECK);
++            event.callEvent();
++            return input.matches(event.getFallDistance());
++        } else {
++            return input.matches(value);
++        }
++    };
+ }

@@ -90,6 +90,7 @@ import org.bukkit.potion.PotionType;
 import org.bukkit.util.BlockIterator;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
+import org.jetbrains.annotations.NotNull;
 
 public class CraftLivingEntity extends CraftEntity implements LivingEntity {
 
@@ -866,6 +867,11 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
         } else {
             this.getHandle().doHurtTarget((ServerLevel) ((CraftEntity) target).getHandle().level(), ((CraftEntity) target).getHandle());
         }
+    }
+
+    @Override
+    public @NotNull ItemStack getWeaponItem() {
+        return this.getHandle().getWeaponItem().asBukkitMirror();
     }
 
     @Override

@@ -4,6 +4,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.jetbrains.annotations.NotNull;
+import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 
 /**
  * Represents an event.
@@ -113,6 +115,20 @@ public abstract class Event {
          * take place if possible, even if the server would not normally allow
          * the action. Some actions may not be allowed.
          */
-        ALLOW
+        ALLOW;
+
+        public boolean getBoolOrElse(BooleanSupplier supplier) {
+            switch (this) {
+                case ALLOW -> {
+                    return true;
+                }
+                case DENY -> {
+                    return false;
+                }
+                default -> {
+                    return supplier.getAsBoolean();
+                }
+            }
+        }
     }
 }

@@ -3266,6 +3266,14 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
     public void resetCooldown() {
         getHandle().resetAttackStrengthTicker();
     }
+
+    // Paper - entity interactivity API
+    public boolean canInteractWithEntity(org.bukkit.entity.Entity entity, double distance) {
+        Preconditions.checkArgument(entity != null, "entity == null");
+        Preconditions.checkState(!this.getHandle().generation, "Cannot check entity interactivity during world generation");
+
+        return this.getHandle().canInteractWithEntity(((CraftEntity) entity).getHandle(), distance);
+    }
     // Paper end
     // Spigot start
     private final Player.Spigot spigot = new Player.Spigot() {

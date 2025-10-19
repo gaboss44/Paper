@@ -1,8 +1,11 @@
 --- a/net/minecraft/world/damagesource/DamageSource.java
 +++ b/net/minecraft/world/damagesource/DamageSource.java
-@@ -20,6 +_,92 @@
+@@ -19,7 +_,101 @@
+     @Nullable
      private final Entity directEntity;
      @Nullable
++    private ItemStack weaponItem = null;
++    @Nullable
      private final Vec3 damageSourcePosition;
 +    // CraftBukkit start
 +    @Nullable
@@ -37,6 +40,12 @@
 +        }
 +        final DamageSource damageSource = this.copy();
 +        damageSource.eventEntityDamager = entity;
++        return damageSource;
++    }
++
++    public DamageSource weaponItem(final ItemStack stack) {
++        final DamageSource damageSource = this.copy();
++        damageSource.weaponItem = stack;
 +        return damageSource;
 +    }
 +
@@ -93,3 +102,12 @@
  
      @Override
      public String toString() {
+@@ -69,7 +_,7 @@
+ 
+     @Nullable
+     public ItemStack getWeaponItem() {
+-        return this.directEntity != null ? this.directEntity.getWeaponItem() : null;
++        return this.weaponItem != null ? this.weaponItem : this.directEntity != null ? this.directEntity.getWeaponItem() : null;
+     }
+ 
+     public Component getLocalizedDeathMessage(LivingEntity livingEntity) {

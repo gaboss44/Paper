@@ -1,0 +1,432 @@
+--- a/net/minecraft/advancements/critereon/MinMaxBounds.java
++++ b/net/minecraft/advancements/critereon/MinMaxBounds.java
+@@ -1,5 +_,6 @@
+ package net.minecraft.advancements.critereon;
+ 
++import org.jspecify.annotations.NullMarked;
+ import com.mojang.brigadier.StringReader;
+ import com.mojang.brigadier.exceptions.CommandSyntaxException;
+ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
+@@ -10,10 +_,13 @@
+ import io.netty.buffer.ByteBuf;
+ import java.util.Optional;
+ import java.util.function.Function;
++import java.util.function.BiFunction;
+ import java.util.function.Supplier;
++import javax.annotation.Nullable;
+ import net.minecraft.network.chat.Component;
+ import net.minecraft.network.codec.ByteBufCodecs;
+ import net.minecraft.network.codec.StreamCodec;
++import net.minecraft.world.entity.Entity;
+ 
+ public interface MinMaxBounds<T extends Number> {
+     SimpleCommandExceptionType ERROR_EMPTY = new SimpleCommandExceptionType(Component.translatable("argument.range.empty"));
+@@ -23,6 +_,17 @@
+ 
+     Optional<T> max();
+ 
++    @FunctionalInterface
++    public interface TriFunction<T, U, V, R> {
++
++        R apply(T t, U u, V v);
++
++        default <K> TriFunction<T, U, V, K> andThen(Function<? super R, ? extends K> after) {
++            java.util.Objects.requireNonNull(after);
++            return (T t, U u, V v) -> after.apply(apply(t, u, v));
++        }
++    }
++
+     default boolean isAny() {
+         return this.min().isEmpty() && this.max().isEmpty();
+     }
+@@ -145,23 +_,79 @@
+         R create(StringReader reader, Optional<T> min, Optional<T> max) throws CommandSyntaxException;
+     }
+ 
+-    public record Doubles(@Override Optional<Double> min, @Override Optional<Double> max, Optional<Double> minSq, Optional<Double> maxSq)
+-        implements MinMaxBounds<Double> {
++    public class Doubles implements MinMaxBounds<Double> {
++
++        public static final BiFunction<Double, CompiledInput, Boolean> IDENTITY_MATCHER_DOUBLE = (value, input) -> input.matches(value);
++        public static final BiFunction<Double, CompiledInput, Boolean> IDENTITY_SQ_MATCHER_DOUBLE = (value, input) -> input.matchesSqr(value);
++
+         public static final MinMaxBounds.Doubles ANY = new MinMaxBounds.Doubles(Optional.empty(), Optional.empty());
+         public static final Codec<MinMaxBounds.Doubles> CODEC = MinMaxBounds.<Double, MinMaxBounds.Doubles>createCodec(Codec.DOUBLE, MinMaxBounds.Doubles::new);
+         public static final StreamCodec<ByteBuf, MinMaxBounds.Doubles> STREAM_CODEC = MinMaxBounds.<ByteBuf, Double, MinMaxBounds.Doubles>createStreamCodec(
+             ByteBufCodecs.DOUBLE, MinMaxBounds.Doubles::new
+         );
+ 
++        private final Optional<Double> min;
++        private final Optional<Double> max;
++        private final Optional<Double> minSq;
++        private final Optional<Double> maxSq;
++        private final BiFunction<Double, CompiledInput, Boolean> matcher;
++        private final BiFunction<Double, CompiledInput, Boolean> sqMatcher;
++
++        private boolean fromStringReader = false;
++
++        private Doubles(Optional<Double> min, Optional<Double> max, Optional<Double> minSq, Optional<Double> maxSq, BiFunction<Double, CompiledInput, Boolean> matcher, BiFunction<Double, CompiledInput, Boolean> sqMatcher) {
++            this.min = min;
++            this.max = max;
++            this.minSq = minSq;
++            this.maxSq = maxSq;
++            this.matcher = matcher != null ? matcher : IDENTITY_MATCHER_DOUBLE;
++            this.sqMatcher = sqMatcher != null ? sqMatcher : IDENTITY_SQ_MATCHER_DOUBLE;
++        }
++
++        private Doubles(Optional<Double> min, Optional<Double> max, BiFunction<Double, CompiledInput, Boolean> matcher, BiFunction<Double, CompiledInput, Boolean> sqMatcher) {
++            this(min, max, squareOpt(min), squareOpt(max), matcher != null ? matcher : IDENTITY_MATCHER_DOUBLE, sqMatcher != null ? sqMatcher : IDENTITY_SQ_MATCHER_DOUBLE);
++        }
++
+         private Doubles(Optional<Double> min, Optional<Double> max) {
+-            this(min, max, squareOpt(min), squareOpt(max));
++            this(min, max, squareOpt(min), squareOpt(max), IDENTITY_MATCHER_DOUBLE, IDENTITY_SQ_MATCHER_DOUBLE);
++        }
++
++        private Doubles(Optional<Double> min, Optional<Double> max, boolean fromStringReader) {
++            this(min, max);
++            this.fromStringReader = fromStringReader;
++        }
++
++        @Override
++        public Optional<Double> min() {
++            return this.min;
++        }
++
++        @Override
++        public Optional<Double> max() {
++            return this.max;
++        }
++
++        public Optional<Double> minSq() {
++            return this.minSq;
++        }
++
++        public Optional<Double> maxSq() {
++            return this.maxSq;
++        }
++
++        public BiFunction<Double, CompiledInput, Boolean> matcher() {
++            return this.matcher;
++        }
++
++        public BiFunction<Double, CompiledInput, Boolean> sqMatcher() {
++            return this.sqMatcher;
+         }
+ 
+         private static MinMaxBounds.Doubles create(StringReader reader, Optional<Double> min, Optional<Double> max) throws CommandSyntaxException {
+             if (min.isPresent() && max.isPresent() && min.get() > max.get()) {
+                 throw ERROR_SWAPPED.createWithContext(reader);
+             } else {
+-                return new MinMaxBounds.Doubles(min, max);
++                return new MinMaxBounds.Doubles(min, max, true);
+             }
+         }
+ 
+@@ -185,12 +_,109 @@
+             return new MinMaxBounds.Doubles(Optional.empty(), Optional.of(max));
+         }
+ 
++        public MinMaxBounds.Doubles withMatcher(BiFunction<Double, CompiledInput, Boolean> matcher) {
++            return new Doubles(this.min, this.max, this.minSq, this.maxSq, matcher, this.sqMatcher);
++        }
++
++        public MinMaxBounds.Doubles withSqMatcher(BiFunction<Double, CompiledInput, Boolean> sqMatcher) {
++            return new Doubles(this.min, this.max, this.minSq, this.maxSq, this.matcher, sqMatcher);
++        }
++
++        @NullMarked
++        public static final class CompiledInput implements MinMaxBounds<Double> {
++            
++            private final Doubles bounds;
++
++            @Nullable
++            private final Entity entity;
++            
++            private CompiledInput(Doubles bounds, @Nullable Entity entity) {
++                this.bounds = bounds;
++                this.entity = entity;
++            }
++            
++            public static CompiledInput from(Doubles bounds) {
++                return new CompiledInput(bounds, null);
++            }
++
++            public static CompiledInput from(Doubles bounds, @Nullable Entity entity) {
++                return new CompiledInput(bounds, entity);
++            }
++
++            @Nullable
++            public Entity getEntity() {
++                return this.entity;
++            }
++            
++            @Override
++            public Optional<Double> min() {
++                return this.bounds.min;
++            }
++
++            @Override
++            public Optional<Double> max() {
++                return this.bounds.max;
++            }
++
++            public Optional<Double> minSq() {
++                return this.bounds.minSq;
++            }
++            
++            public Optional<Double> maxSq() {
++                return this.bounds.maxSq;
++            }
++
++            public boolean isIdentityMatcher() {
++                return this.bounds.matcher == IDENTITY_MATCHER_DOUBLE;
++            }
++
++            public boolean isIdentitySqMatcher() {
++                return this.bounds.sqMatcher == IDENTITY_SQ_MATCHER_DOUBLE;
++            }
++            
++            public boolean matches(double value) {
++                return this.bounds.matchesUnprovided(value);
++            }
++            
++            public boolean matchesSqr(double value) {
++                return this.bounds.matchesSqrUnprovided(value);
++            }
++        }
++
++        public boolean isIdentityMatcher() {
++            return this.matcher == IDENTITY_MATCHER_DOUBLE;
++        }
++
++        public boolean isIdentitySqMatcher() {
++            return this.sqMatcher == IDENTITY_SQ_MATCHER_DOUBLE;
++        }
++
++        public boolean isFromStringReader() {
++            return this.fromStringReader;
++        }
++
+         public boolean matches(double value) {
+-            return (!this.min.isPresent() || !(this.min.get() > value)) && (this.max.isEmpty() || !(this.max.get() < value));
++            return this.matches(value, null);
++        }
++
++        public boolean matches(double value, @Nullable Entity entity) {
++            return this.matcher.apply(value, CompiledInput.from(this, entity));
++        }
++        
++        public boolean matchesUnprovided(double value) {
++            return (this.min.isEmpty() || !(this.min.get() > value)) && (this.max.isEmpty() || !(this.max.get() < value));
+         }
+ 
+         public boolean matchesSqr(double value) {
+-            return (!this.minSq.isPresent() || !(this.minSq.get() > value)) && (this.maxSq.isEmpty() || !(this.maxSq.get() < value));
++            return this.matchesSqr(value, null);
++        }
++
++        public boolean matchesSqr(double value, @Nullable Entity entity) {
++            return this.sqMatcher.apply(value, CompiledInput.from(this, entity));
++        }
++
++        public boolean matchesSqrUnprovided(double value) {
++            return (this.minSq.isEmpty() || !(this.minSq.get() > value)) && (this.maxSq.isEmpty() || !(this.maxSq.get() < value));
+         }
+ 
+         public static MinMaxBounds.Doubles fromReader(StringReader reader) throws CommandSyntaxException {
+@@ -204,21 +_,79 @@
+         }
+     }
+ 
+-    public record Ints(@Override Optional<Integer> min, @Override Optional<Integer> max, Optional<Long> minSq, Optional<Long> maxSq)
+-        implements MinMaxBounds<Integer> {
++    @NullMarked
++    public class Ints implements MinMaxBounds<Integer> {
++
++        public static final BiFunction<Integer, CompiledInput, Boolean> IDENTITY_MATCHER_INTEGER = (value, input) -> input.matches(value);
++        public static final BiFunction<Long, CompiledInput, Boolean> IDENTITY_SQ_MATCHER_LONG = (value, input) -> input.matchesSqr(value);
++        
+         public static final MinMaxBounds.Ints ANY = new MinMaxBounds.Ints(Optional.empty(), Optional.empty());
+         public static final Codec<MinMaxBounds.Ints> CODEC = MinMaxBounds.<Integer, MinMaxBounds.Ints>createCodec(Codec.INT, MinMaxBounds.Ints::new);
+         public static final StreamCodec<ByteBuf, MinMaxBounds.Ints> STREAM_CODEC = MinMaxBounds.<ByteBuf, Integer, MinMaxBounds.Ints>createStreamCodec(ByteBufCodecs.INT, MinMaxBounds.Ints::new);
+ 
++        private final Optional<Integer> min;
++        private final Optional<Integer> max;
++        private final Optional<Long> minSq;
++        private final Optional<Long> maxSq;
++        private final BiFunction<Integer, CompiledInput, Boolean> matcher;
++        private final BiFunction<Long, CompiledInput, Boolean> sqMatcher;
++
++        private boolean fromStringReader = false;
++
++        private Ints(Optional<Integer> min, Optional<Integer> max, Optional<Long> minSq, Optional<Long> maxSq, BiFunction<Integer, CompiledInput, Boolean> matcher, BiFunction<Long, CompiledInput, Boolean> sqMatcher) {
++            this.min = min;
++            this.max = max;
++            this.minSq = minSq;
++            this.maxSq = maxSq;
++            this.matcher = matcher != null ? matcher : IDENTITY_MATCHER_INTEGER;
++            this.sqMatcher = sqMatcher != null ? sqMatcher : IDENTITY_SQ_MATCHER_LONG;
++
++        }
++
++        private Ints(Optional<Integer> min, Optional<Integer> max, BiFunction<Integer, CompiledInput, Boolean> matcher, BiFunction<Long, CompiledInput, Boolean> sqMatcher) {
++            this(min, max, squareOpt(min), squareOpt(max), matcher != null ? matcher : IDENTITY_MATCHER_INTEGER, sqMatcher != null ? sqMatcher : IDENTITY_SQ_MATCHER_LONG);
++        }
++
+         private Ints(Optional<Integer> min, Optional<Integer> max) {
+-            this(min, max, min.map(integer -> integer.longValue() * integer.longValue()), squareOpt(max));
++            this(min, max, squareOpt(min), squareOpt(max), IDENTITY_MATCHER_INTEGER, IDENTITY_SQ_MATCHER_LONG);
++        }
++
++        private Ints(Optional<Integer> min, Optional<Integer> max, boolean fromStringReader) {
++            this(min, max);
++            this.fromStringReader = fromStringReader;
++        }
++
++        @Override
++        public Optional<Integer> min() {
++            return this.min;
++        }
++
++        @Override
++        public Optional<Integer> max() {
++            return this.max;
++        }
++
++        public Optional<Long> minSq() {
++            return this.minSq;
++        }
++
++        public Optional<Long> maxSq() {
++            return this.maxSq;
++        }
++
++        public BiFunction<Integer, CompiledInput, Boolean> matcher() {
++            return this.matcher;
++        }
++
++        public BiFunction<Long, CompiledInput, Boolean> sqMatcher() {
++            return this.sqMatcher;
+         }
+ 
+         private static MinMaxBounds.Ints create(StringReader reader, Optional<Integer> min, Optional<Integer> max) throws CommandSyntaxException {
+             if (min.isPresent() && max.isPresent() && min.get() > max.get()) {
+                 throw ERROR_SWAPPED.createWithContext(reader);
+             } else {
+-                return new MinMaxBounds.Ints(min, max);
++                return new MinMaxBounds.Ints(min, max, true);
+             }
+         }
+ 
+@@ -242,12 +_,108 @@
+             return new MinMaxBounds.Ints(Optional.empty(), Optional.of(max));
+         }
+ 
++        public MinMaxBounds.Ints withMatcher(BiFunction<Integer, CompiledInput, Boolean> matcher) {
++            return new Ints(this.min, this.max, this.minSq, this.maxSq, matcher, this.sqMatcher);
++        }
++
++        public MinMaxBounds.Ints withSqMatcher(BiFunction<Long, CompiledInput, Boolean> sqMatcher) {
++            return new Ints(this.min, this.max, this.minSq, this.maxSq, this.matcher, sqMatcher);
++        }
++
++        @NullMarked
++        public static final class CompiledInput implements MinMaxBounds<Integer> {
++
++            private final Ints bounds;
++
++            @Nullable
++            private final Entity entity;
++
++            private CompiledInput(Ints bounds, @Nullable Entity entity) {
++                this.bounds = bounds;
++                this.entity = entity;
++            }
++
++            public static CompiledInput from(Ints bounds) {
++                return new CompiledInput(bounds, null);
++            }
++
++            public static CompiledInput from(Ints bounds, @Nullable Entity entity) {
++                return new CompiledInput(bounds, entity);
++            }
++
++            public @Nullable Entity getEntity() {
++                return this.entity;
++            }
++
++            @Override
++            public Optional<Integer> min() {
++                return this.bounds.min;
++            }
++
++            @Override
++            public Optional<Integer> max() {
++                return this.bounds.max;
++            }
++
++            public Optional<Long> minSq() {
++                return this.bounds.minSq;
++            }
++
++            public Optional<Long> maxSq() {
++                return this.bounds.maxSq;
++            }
++
++            public boolean isIdentityMatcher() {
++                return this.bounds.matcher == IDENTITY_MATCHER_INTEGER;
++            }
++
++            public boolean isIdentitySqMatcher() {
++                return this.bounds.sqMatcher == IDENTITY_SQ_MATCHER_LONG;
++            }
++
++            public boolean matches(int value) {
++                return this.bounds.matchesUnprovided(value);
++            }
++            
++            public boolean matchesSqr(long value) {
++                return this.bounds.matchesSqrUnprovided(value);
++            }
++        }
++
++        public boolean isIdentityMatcher() {
++            return this.matcher == IDENTITY_MATCHER_INTEGER;
++        }
++
++        public boolean isIdentitySqMatcher() {
++            return this.sqMatcher == IDENTITY_SQ_MATCHER_LONG;
++        }
++
++        public boolean isFromStringReader() {
++            return this.fromStringReader;
++        }
++
+         public boolean matches(int value) {
+-            return (!this.min.isPresent() || this.min.get() <= value) && (this.max.isEmpty() || this.max.get() >= value);
++            return this.matches(value, null);
++        }
++
++        public boolean matches(int value, @Nullable Entity entity) {
++            return this.matcher.apply(value, CompiledInput.from(this, entity));
++        }
++
++        public boolean matchesUnprovided(int value) {
++            return (this.min.isEmpty() || this.min.get() <= value) && (this.max.isEmpty() || this.max.get() >= value);
+         }
+ 
+         public boolean matchesSqr(long value) {
+-            return (!this.minSq.isPresent() || this.minSq.get() <= value) && (this.maxSq.isEmpty() || this.maxSq.get() >= value);
++            return this.matchesSqr(value, null);
++        }
++
++        public boolean matchesSqr(long value, @Nullable Entity entity) {
++            return this.sqMatcher.apply(value, CompiledInput.from(this, entity));
++        }
++
++        public boolean matchesSqrUnprovided(long value) {
++            return (this.minSq.isEmpty() || this.minSq.get() <= value) && (this.maxSq.isEmpty() || this.maxSq.get() >= value);
+         }
+ 
+         public static MinMaxBounds.Ints fromReader(StringReader reader) throws CommandSyntaxException {

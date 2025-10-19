@@ -18,7 +18,7 @@
  public abstract class LivingEntity extends Entity implements Attackable, WaypointTransmitter {
      private static final Logger LOGGER = LogUtils.getLogger();
      private static final String TAG_ACTIVE_EFFECTS = "active_effects";
-@@ -264,11 +_,25 @@
+@@ -264,11 +_,28 @@
      );
      protected final EntityEquipment equipment;
      private Waypoint.Icon locatorBarIcon = new Waypoint.Icon();
@@ -34,6 +34,9 @@
 +    public net.kyori.adventure.util.TriState frictionState = net.kyori.adventure.util.TriState.NOT_SET; // Paper - Friction API
 +    public int shieldBlockingDelay = this.level().paperConfig().misc.shieldBlockingDelay; // Paper - Make shield blocking delay configurable
 +    // CraftBukkit end
++
++    @Nullable
++    protected EquipmentSlot currentAttackSlot = null;
  
      protected LivingEntity(EntityType<? extends LivingEntity> entityType, Level level) {
          super(entityType, level);
@@ -987,6 +990,20 @@
      }
  
      protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
+@@ -1509,6 +_,13 @@
+             : f;
+     }
+ 
++    protected float getKnockback(Entity attacker, DamageSource damageSource, @Nullable ItemStack stack) {
++        float f = (float)this.getAttributeValue(Attributes.ATTACK_KNOCKBACK);
++        return this.level() instanceof ServerLevel serverLevel
++            ? EnchantmentHelper.modifyKnockback(serverLevel, stack != null ? stack : net.minecraft.world.item.ItemStack.EMPTY, attacker, damageSource, f)
++            : f;
++    }
++
+     protected void dropFromLootTable(ServerLevel level, DamageSource damageSource, boolean playerKill) {
+         Optional<ResourceKey<LootTable>> lootTable = this.getLootTable();
+         if (!lootTable.isEmpty()) {
 @@ -1572,9 +_,14 @@
      }
  
@@ -1312,20 +1329,37 @@
      }
  
      protected void updateSwingTime() {
-@@ -2077,6 +_,13 @@
-         return this.getMainHandItem();
+@@ -2071,11 +_,28 @@
+         return this.getMainArm() == arm ? this.getMainHandItem() : this.getOffhandItem();
      }
  
 +    // Paper start - optional off-handed attack
+     @Nonnull
+     @Override
+     public ItemStack getWeaponItem() {
+-        return this.getMainHandItem();
+-    }
++        return this.currentAttackSlot != null ? this.getItemBySlot(this.currentAttackSlot) : this.getMainHandItem();
++    }
++
 +    @Nonnull
 +    public ItemStack getWeaponItem(boolean offHand) {
 +        return offHand ? this.getOffhandItem() : this.getMainHandItem();
 +    }
-+    // Paper end - optional off-handed attack
 +
++    @Nullable
++    public EquipmentSlot getCurrentAttackSlot() {
++        return this.currentAttackSlot;
++    }
++
++    @Nullable
++    public ItemStack getCurrentAttackItem() {
++        return this.currentAttackSlot != null ? this.getItemBySlot(this.currentAttackSlot) : null;
++    }
++    // Paper end - optional off-handed attack
+ 
      public boolean isHolding(Item item) {
          return this.isHolding(itemStack -> itemStack.is(item));
-     }
 @@ -2120,8 +_,15 @@
      }
  

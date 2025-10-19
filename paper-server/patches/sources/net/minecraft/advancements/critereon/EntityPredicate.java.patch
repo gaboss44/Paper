@@ -1,0 +1,11 @@
+--- a/net/minecraft/advancements/critereon/EntityPredicate.java
++++ b/net/minecraft/advancements/critereon/EntityPredicate.java
+@@ -108,7 +_,7 @@
+             if (this.movement.isPresent()) {
+                 Vec3 knownMovement = entity.getKnownMovement();
+                 Vec3 vec3 = knownMovement.scale(20.0);
+-                if (!this.movement.get().matches(vec3.x, vec3.y, vec3.z, entity.fallDistance)) {
++                if (!this.movement.get().matches(vec3.x, vec3.y, vec3.z, entity.fallDistance, entity)) {
+                     return false;
+                 }
+             }

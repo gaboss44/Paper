@@ -1,0 +1,14 @@
+--- a/net/minecraft/world/item/Item.java
++++ b/net/minecraft/world/item/Item.java
+@@ -229,6 +_,11 @@
+         return null;
+     }
+ 
++    @Nullable
++    public DamageSource getDamageSource(LivingEntity entity, @Nullable ItemStack stack) {
++        return stack == null ? this.getDamageSource(entity) : null;
++    }
++
+     public void hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
+     }
+ 

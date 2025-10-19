@@ -78,10 +78,10 @@ index 7c9a2eed4441f816723562e0012f918db265912e..cc8638a6dab16ffbdf6951fa10182bd5
              profiler.popPush("tickSpawningChunks");
  
 diff --git a/net/minecraft/server/level/ServerPlayer.java b/net/minecraft/server/level/ServerPlayer.java
-index 4726c980ad52c1300de16b7607006ea4a13325eb..4d8fb02fa18157dbf805c93422c2c2db7f437e4b 100644
+index 8a570af93c778d36b4fa4880ce7c33e52adb68a8..4b0fb18e85d34501312f9bbebd8b1959c8c00117 100644
 --- a/net/minecraft/server/level/ServerPlayer.java
 +++ b/net/minecraft/server/level/ServerPlayer.java
-@@ -406,6 +406,10 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+@@ -405,6 +405,10 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
      public boolean queueHealthUpdatePacket;
      public @Nullable net.minecraft.network.protocol.game.ClientboundSetHealthPacket queuedHealthUpdatePacket;
      // Paper end - cancellable death event
@@ -93,7 +93,7 @@ index 4726c980ad52c1300de16b7607006ea4a13325eb..4d8fb02fa18157dbf805c93422c2c2db
      public String displayName;
      public net.kyori.adventure.text.Component adventure$displayName; // Paper
 diff --git a/net/minecraft/world/level/NaturalSpawner.java b/net/minecraft/world/level/NaturalSpawner.java
-index 3a864c568cd66a680760bb4df2cb020e323e9a9d..c710e08ab48075ce7854e56826adb8f0364b025b 100644
+index 9d6719fca3175aa22543d69bac84e790c54300f9..cdc4a05e48d0ecaae920046265f02044b5d90b99 100644
 --- a/net/minecraft/world/level/NaturalSpawner.java
 +++ b/net/minecraft/world/level/NaturalSpawner.java
 @@ -66,6 +66,14 @@ public final class NaturalSpawner {

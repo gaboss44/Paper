@@ -6,7 +6,7 @@
      public void hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
 -        if (canSmashAttack(attacker)) {
 +        // Paper start - Add EntityAttemptSmashAttackEvent
-+        final boolean canSmashAttack = canSmashAttack(attacker);
++        final boolean canSmashAttack = canSmashAttack(attacker, stack, io.papermc.paper.event.entity.EntityCanSmashAttackCheckEvent.Reason.HURT_ENEMY);
 +        io.papermc.paper.event.entity.EntityAttemptSmashAttackEvent event = new io.papermc.paper.event.entity.EntityAttemptSmashAttackEvent(attacker.getBukkitLivingEntity(), target.getBukkitLivingEntity(), stack.asBukkitCopy(), canSmashAttack);
 +        event.callEvent();
 +        final org.bukkit.event.Event.Result result = event.getResult();
@@ -15,8 +15,84 @@
              ServerLevel serverLevel = (ServerLevel)attacker.level();
              attacker.setDeltaMovement(attacker.getDeltaMovement().with(Direction.Axis.Y, 0.01F));
              if (attacker instanceof ServerPlayer serverPlayer) {
-@@ -127,7 +_,7 @@
-             double knockbackPower = getKnockbackPower(attacker, livingEntity, vec3);
+@@ -66,7 +_,12 @@
+                     serverPlayer.setSpawnExtraParticlesOnFall(true);
+                 }
+ 
+-                SoundEvent soundEvent = attacker.fallDistance > 5.0 ? SoundEvents.MACE_SMASH_GROUND_HEAVY : SoundEvents.MACE_SMASH_GROUND;
++                double fd = attacker.fallDistance;
++                io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent event2 = new io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent(attacker.getBukkitLivingEntity(), target.getBukkitLivingEntity(), stack.asBukkitCopy(), fd, io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent.Reason.SOUND_EFFECT);
++                event2.callEvent();
++                fd = event2.getFallDistance();
++
++                SoundEvent soundEvent = fd > 5.0 ? SoundEvents.MACE_SMASH_GROUND_HEAVY : SoundEvents.MACE_SMASH_GROUND;
+                 serverLevel.playSound(null, attacker.getX(), attacker.getY(), attacker.getZ(), soundEvent, attacker.getSoundSource(), 1.0F, 1.0F);
+             } else {
+                 serverLevel.playSound(
+@@ -74,7 +_,7 @@
+                 );
+             }
+ 
+-            knockback(serverLevel, attacker, target);
++            knockback(serverLevel, attacker, target, stack);
+         }
+     }
+ 
+@@ -88,20 +_,30 @@
+ 
+     @Override
+     public void postHurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
+-        if (canSmashAttack(attacker)) {
++        if (canSmashAttack(attacker, stack, io.papermc.paper.event.entity.EntityCanSmashAttackCheckEvent.Reason.POST_HURT_ENEMY)) {
+             attacker.resetFallDistance();
+         }
+     }
+ 
+     @Override
+     public float getAttackDamageBonus(Entity target, float damage, DamageSource damageSource) {
++        return this.getAttackDamageBonus(target, damage, damageSource, null);
++    }
++
++    public float getAttackDamageBonus(Entity target, float damage, DamageSource damageSource, @Nullable ItemStack stack) {
+         if (damageSource.getDirectEntity() instanceof LivingEntity livingEntity) {
+-            if (!canSmashAttack(livingEntity)) {
++            ItemStack weaponItem = stack != null ? stack : livingEntity.getWeaponItem();
++            if (!canSmashAttack(livingEntity, stack, io.papermc.paper.event.entity.EntityCanSmashAttackCheckEvent.Reason.ATTACK_DAMAGE_BONUS)) {
+                 return 0.0F;
+             } else {
+                 double d = 3.0;
+                 double d1 = 8.0;
+                 double d2 = livingEntity.fallDistance;
++                if (target instanceof LivingEntity livingTarget) {
++                    io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent event = new io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent(livingEntity.getBukkitLivingEntity(), livingTarget.getBukkitLivingEntity(), weaponItem.asBukkitCopy(), d2, io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent.Reason.ATTACK_DAMAGE_BONUS);
++                    event.callEvent();
++                    d2 = event.getFallDistance();
++                }
+                 double d3;
+                 if (d2 <= 3.0) {
+                     d3 = 4.0 * d2;
+@@ -112,7 +_,7 @@
+                 }
+ 
+                 return livingEntity.level() instanceof ServerLevel serverLevel
+-                    ? (float)(d3 + EnchantmentHelper.modifyFallBasedDamage(serverLevel, livingEntity.getWeaponItem(), target, damageSource, 0.0F) * d2)
++                    ? (float)(d3 + EnchantmentHelper.modifyFallBasedDamage(serverLevel, weaponItem, target, damageSource, 0.0F) * d2)
+                     : (float)d3;
+             }
+         } else {
+@@ -121,13 +_,17 @@
+     }
+ 
+     private static void knockback(Level level, Entity attacker, Entity target) {
++        MaceItem.knockback(level, attacker, target, null);
++    }
++
++    private static void knockback(Level level, Entity attacker, Entity target, @Nullable ItemStack stack) {
+         level.levelEvent(2013, target.getOnPos(), 750);
+         level.getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(3.5), knockbackPredicate(attacker, target)).forEach(livingEntity -> {
+             Vec3 vec3 = livingEntity.position().subtract(target.position());
+-            double knockbackPower = getKnockbackPower(attacker, livingEntity, vec3);
++            double knockbackPower = getKnockbackPower(attacker, livingEntity, vec3, stack);
              Vec3 vec31 = vec3.normalize().scale(knockbackPower);
              if (knockbackPower > 0.0) {
 -                livingEntity.push(vec31.x, 0.7F, vec31.z);
@@ -24,3 +100,53 @@
                  if (livingEntity instanceof ServerPlayer serverPlayer) {
                      serverPlayer.connection.send(new ClientboundSetEntityMotionPacket(serverPlayer));
                  }
+@@ -153,16 +_,47 @@
+     }
+ 
+     private static double getKnockbackPower(Entity attacker, LivingEntity entity, Vec3 offset) {
+-        return (3.5 - offset.length()) * 0.7F * (attacker.fallDistance > 5.0 ? 2 : 1) * (1.0 - entity.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
++        return MaceItem.getKnockbackPower(attacker, entity, offset, null);
++    }
++
++    private static double getKnockbackPower(Entity attacker, LivingEntity entity, Vec3 offset, @Nullable ItemStack stack) {
++        double fd = attacker.fallDistance;
++        if (stack != null) {
++            io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent event = new io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent(attacker.getBukkitEntity(), entity.getBukkitLivingEntity(), stack.asBukkitCopy(), fd, io.papermc.paper.event.entity.EntitySmashAttackFallDistanceEvent.Reason.KNOCKBACK_POWER);
++            event.callEvent();
++            fd = event.getFallDistance();
++        }
++        return (3.5 - offset.length()) * 0.7F * (fd > 5.0 ? 2 : 1) * (1.0 - entity.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+     }
+ 
+     public static boolean canSmashAttack(LivingEntity entity) {
+-        return entity.fallDistance > 1.5 && !entity.isFallFlying();
++        return MaceItem.canSmashAttack(entity, null, null);
++    }
++
++    public static boolean canSmashAttack(LivingEntity entity, @Nullable ItemStack stack, @Nullable io.papermc.paper.event.entity.EntityCanSmashAttackCheckEvent.Reason reason) {
++        double fd = entity.fallDistance;
++        double rfd = 1.5;
++        boolean flag = entity.isFallFlying();
++        boolean flag1 = fd > rfd;
++        boolean flag2 = flag1 && !flag;
++        if (reason != null) {
++            io.papermc.paper.event.entity.EntityCanSmashAttackCheckEvent event = new io.papermc.paper.event.entity.EntityCanSmashAttackCheckEvent(entity.getBukkitLivingEntity(), stack != null ? stack.asBukkitCopy() : null, fd, rfd, flag, flag2, reason);
++            event.callEvent();
++            org.bukkit.event.Event.Result result = event.getResult();
++            flag2 = result == org.bukkit.event.Event.Result.ALLOW || (flag2 && result == org.bukkit.event.Event.Result.DEFAULT);
++        }
++        return flag2;
+     }
+ 
+     @Nullable
+     @Override
+     public DamageSource getDamageSource(LivingEntity entity) {
+         return canSmashAttack(entity) ? entity.damageSources().mace(entity) : super.getDamageSource(entity);
++    }
++
++    @Nullable
++    @Override
++    public DamageSource getDamageSource(LivingEntity entity, @Nullable ItemStack stack) {
++        return canSmashAttack(entity, stack, io.papermc.paper.event.entity.EntityCanSmashAttackCheckEvent.Reason.DAMAGE_SOURCE) ? entity.damageSources().mace(entity) : super.getDamageSource(entity);
+     }
+ }

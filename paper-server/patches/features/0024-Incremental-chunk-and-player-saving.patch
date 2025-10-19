@@ -83,10 +83,10 @@ index 34b7769663e235b93c6388ab0c92c00f0297e42f..dda8d38ef61672cc714d9e5a475f9b04
          // Paper start - add close param
          this.save(progress, flush, skipSave, false);
 diff --git a/net/minecraft/server/level/ServerPlayer.java b/net/minecraft/server/level/ServerPlayer.java
-index dcf371aeb3696fbee72a8a7e7cbd7677a788819b..283074b1097768887e057e08843d5a2c70bbccac 100644
+index 4740dcdce1c19be53f532385ff251689336d0433..8a570af93c778d36b4fa4880ce7c33e52adb68a8 100644
 --- a/net/minecraft/server/level/ServerPlayer.java
 +++ b/net/minecraft/server/level/ServerPlayer.java
-@@ -195,6 +195,7 @@ import org.slf4j.Logger;
+@@ -194,6 +194,7 @@ import org.slf4j.Logger;
  
  public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patches.chunk_system.player.ChunkSystemServerPlayer { // Paper - rewrite chunk system
      private static final Logger LOGGER = LogUtils.getLogger();

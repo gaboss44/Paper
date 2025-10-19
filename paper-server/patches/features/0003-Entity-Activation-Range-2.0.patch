@@ -543,10 +543,10 @@ index c925fb790dec8090c853099a405ea0712e2a580e..cf09e392ecf1a8cc7908fad3e9f3688f
              movement = this.maybeBackOffFromEdge(movement, type);
              Vec3 vec3 = this.collide(movement);
 diff --git a/net/minecraft/world/entity/LivingEntity.java b/net/minecraft/world/entity/LivingEntity.java
-index a329a6ac881280008f28b5fa3a3d12e6410fa378..97a4bfdc0f7d49fb761d28a8d7febd5ce1cf74b7 100644
+index 9485e2309ec28387e6203407b7cf04ffb03be1ba..bcc474cdb0d23a2522ac73dc047d75c71297d9ec 100644
 --- a/net/minecraft/world/entity/LivingEntity.java
 +++ b/net/minecraft/world/entity/LivingEntity.java
-@@ -3231,6 +3231,14 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
+@@ -3251,6 +3251,14 @@ public abstract class LivingEntity extends Entity implements Attackable, Waypoin
          return false;
      }
  
@@ -562,7 +562,7 @@ index a329a6ac881280008f28b5fa3a3d12e6410fa378..97a4bfdc0f7d49fb761d28a8d7febd5c
      public void tick() {
          super.tick();
 diff --git a/net/minecraft/world/entity/Mob.java b/net/minecraft/world/entity/Mob.java
-index 63f0b0a39e51b1cd30c2d131414d9512886a664f..e0b3cb2b2694768803ed347a1026b881fd624951 100644
+index 3f06378cd54236af675e82307ffcf00121f7762c..6c04b23237742bfe4fdeb8ed473c915df7028bc6 100644
 --- a/net/minecraft/world/entity/Mob.java
 +++ b/net/minecraft/world/entity/Mob.java
 @@ -207,6 +207,19 @@ public abstract class Mob extends LivingEntity implements EquipmentUser, Leashab

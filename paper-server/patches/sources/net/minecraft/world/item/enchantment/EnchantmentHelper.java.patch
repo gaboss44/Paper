@@ -16,3 +16,86 @@
          if (itemEnchantments == null) {
              return ItemEnchantments.EMPTY;
          } else {
+@@ -139,7 +_,31 @@
+                 for (Entry<Holder<Enchantment>> entry : itemEnchantments.entrySet()) {
+                     Holder<Enchantment> holder = entry.getKey();
+                     if (holder.value().matchingSlot(slot)) {
+-                        visitor.accept(holder, entry.getIntValue(), enchantedItemInUse);
++                        visitor.accept(holder, entry.getIntValue(), enchantedItemInUse.withHolder(holder));
++                    }
++                }
++            }
++        }
++    }
++
++    private static void runIterationOnItem(
++        ItemStack stack,
++        EquipmentSlot slot,
++        LivingEntity entity,
++        Entity target,
++        EnchantmentTarget enchantmentTarget,
++        DamageSource damageSource,
++        EnchantmentHelper.EnchantmentInSlotVisitor visitor
++    ) {
++        if (!stack.isEmpty()) {
++            ItemEnchantments itemEnchantments = stack.get(DataComponents.ENCHANTMENTS);
++            if (itemEnchantments != null && !itemEnchantments.isEmpty()) {
++                EnchantedItemInUse enchantedItemInUse = new EnchantedItemInUse(stack, slot, entity);
++
++                for (Entry<Holder<Enchantment>> entry : itemEnchantments.entrySet()) {
++                    Holder<Enchantment> holder = entry.getKey();
++                    if (holder.value().matchingSlot(slot)) {
++                        visitor.accept(holder, entry.getIntValue(), enchantedItemInUse.withHolder(holder));
+                     }
+                 }
+             }
+@@ -220,18 +_,19 @@
+ 
+         if (itemSource != null) {
+             if (damageSource.getEntity() instanceof LivingEntity livingEntity) {
++                EquipmentSlot attackSlot = livingEntity.getCurrentAttackSlot();
+                 runIterationOnItem(
+                     itemSource,
+-                    EquipmentSlot.MAINHAND,
++                    attackSlot != null ? attackSlot : EquipmentSlot.MAINHAND,
+                     livingEntity,
+-                    (enchantment, level1, item) -> enchantment.value().doPostAttack(level, level1, item, EnchantmentTarget.ATTACKER, entity, damageSource)
++                    (enchantment, level1, item) -> enchantment.value().doPostAttack(level, level1, item.withHolder(enchantment), EnchantmentTarget.ATTACKER, entity, damageSource)
+                 );
+             } else if (onBreak != null) {
+                 EnchantedItemInUse enchantedItemInUse = new EnchantedItemInUse(itemSource, null, null, onBreak);
+                 runIterationOnItem(
+                     itemSource,
+                     (enchantment, level1) -> enchantment.value()
+-                        .doPostAttack(level, level1, enchantedItemInUse, EnchantmentTarget.ATTACKER, entity, damageSource)
++                        .doPostAttack(level, level1, enchantedItemInUse.withHolder(enchantment), EnchantmentTarget.ATTACKER, entity, damageSource)
+                 );
+             }
+         }
+@@ -292,7 +_,7 @@
+     public static void onProjectileSpawned(ServerLevel level, ItemStack firedFromWeapon, Projectile projectile, Consumer<Item> onBreak) {
+         LivingEntity livingEntity1 = projectile.getOwner() instanceof LivingEntity livingEntity ? livingEntity : null;
+         EnchantedItemInUse enchantedItemInUse = new EnchantedItemInUse(firedFromWeapon, null, livingEntity1, onBreak);
+-        runIterationOnItem(firedFromWeapon, (enchantment, level1) -> enchantment.value().onProjectileSpawned(level, level1, enchantedItemInUse, projectile));
++        runIterationOnItem(firedFromWeapon, (enchantment, level1) -> enchantment.value().onProjectileSpawned(level, level1, enchantedItemInUse.withHolder(enchantment), projectile));
+     }
+ 
+     public static void onHitBlock(
+@@ -306,7 +_,7 @@
+         Consumer<Item> onBreak
+     ) {
+         EnchantedItemInUse enchantedItemInUse = new EnchantedItemInUse(stack, slot, owner, onBreak);
+-        runIterationOnItem(stack, (enchantment, level1) -> enchantment.value().onHitBlock(level, level1, enchantedItemInUse, entity, pos, state));
++        runIterationOnItem(stack, (enchantment, level1) -> enchantment.value().onHitBlock(level, level1, enchantedItemInUse.withHolder(enchantment), entity, pos, state));
+     }
+ 
+     public static int modifyDurabilityToRepairFromXp(ServerLevel level, ItemStack stack, int duabilityToRepairFromXp) {
+@@ -469,7 +_,7 @@
+                 for (Entry<Holder<Enchantment>> entry : itemEnchantments.entrySet()) {
+                     Holder<Enchantment> holder = entry.getKey();
+                     if (holder.value().effects().has(componentType) && holder.value().matchingSlot(equipmentSlot)) {
+-                        list.add(new EnchantedItemInUse(itemBySlot, equipmentSlot, entity));
++                        list.add(new EnchantedItemInUse(itemBySlot, equipmentSlot, entity).withHolder(holder));
+                     }
+                 }
+             }

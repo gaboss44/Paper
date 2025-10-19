@@ -438,8 +438,23 @@
          }
  
          return flag;
-@@ -1296,7 +_,7 @@
-             float knockback = this.getKnockback(source, damageSource);
+@@ -1288,15 +_,19 @@
+     public boolean doHurtTarget(ServerLevel level, Entity source) {
+         float f = (float)this.getAttributeValue(Attributes.ATTACK_DAMAGE);
+         ItemStack weaponItem = this.getWeaponItem();
+-        DamageSource damageSource = Optional.ofNullable(weaponItem.getItem().getDamageSource(this)).orElse(this.damageSources().mobAttack(this));
++        DamageSource damageSource = Optional.ofNullable(weaponItem.getItem().getDamageSource(this, weaponItem)).orElse(this.damageSources().mobAttack(this));
+         f = EnchantmentHelper.modifyDamage(level, weaponItem, source, damageSource, f);
+-        f += weaponItem.getItem().getAttackDamageBonus(source, f, damageSource);
++        if (weaponItem.getItem() instanceof net.minecraft.world.item.MaceItem maceItem) {
++            f += maceItem.getAttackDamageBonus(source, f, damageSource, weaponItem);
++        } else {
++            f += weaponItem.getItem().getAttackDamageBonus(source, f, damageSource);
++        }
+         boolean flag = source.hurtServer(level, damageSource, f);
+         if (flag) {
+-            float knockback = this.getKnockback(source, damageSource);
++            float knockback = this.getKnockback(source, damageSource, weaponItem);
              if (knockback > 0.0F && source instanceof LivingEntity livingEntity) {
                  livingEntity.knockback(
 -                    knockback * 0.5F, Mth.sin(this.getYRot() * (float) (Math.PI / 180.0)), -Mth.cos(this.getYRot() * (float) (Math.PI / 180.0))

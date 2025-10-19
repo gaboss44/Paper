@@ -312,6 +312,15 @@
              );
          }
      }
+@@ -555,7 +_,7 @@
+         this.getItem().postHurtEnemy(this, enemy, attacker);
+         Weapon weapon = this.get(DataComponents.WEAPON);
+         if (weapon != null) {
+-            this.hurtAndBreak(weapon.itemDamagePerAttack(), attacker, EquipmentSlot.MAINHAND);
++            this.hurtAndBreak(weapon.itemDamagePerAttack(), attacker, Objects.requireNonNullElse(attacker.getCurrentAttackSlot(), EquipmentSlot.MAINHAND));
+         }
+     }
+ 
 @@ -712,6 +_,12 @@
          return this.getItem().useOnRelease(this);
      }

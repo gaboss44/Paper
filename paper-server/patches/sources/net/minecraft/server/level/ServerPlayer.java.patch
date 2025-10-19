@@ -1,5 +1,13 @@
 --- a/net/minecraft/server/level/ServerPlayer.java
 +++ b/net/minecraft/server/level/ServerPlayer.java
+@@ -65,7 +_,6 @@
+ import net.minecraft.network.protocol.game.ClientboundHurtAnimationPacket;
+ import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
+ import net.minecraft.network.protocol.game.ClientboundOpenBookPacket;
+-import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+ import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
+ import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
+ import net.minecraft.network.protocol.game.ClientboundPlayerCombatEndPacket;
 @@ -245,7 +_,8 @@
      private int levitationStartTime;
      private boolean disconnected;
@@ -1265,7 +1273,22 @@
              }
  
              if (entityToSpectate != null) {
-@@ -1822,11 +_,11 @@
+@@ -1816,17 +_,26 @@
+         }
+     }
+ 
++    @Override
++    public void attack(Entity targetEntity, boolean offhand) {
++        if (this.isSpectator()) {
++            this.setCamera(targetEntity);
++        } else {
++            super.attack(targetEntity, offhand);
++        }
++    }
++
+     public long getLastActionTime() {
+         return this.lastActionTime;
+     }
  
      @Nullable
      public Component getTabListDisplayName() {
@@ -1400,6 +1423,18 @@
          if (vehicle instanceof LivingEntity livingEntity) {
              for (MobEffectInstance mobEffectInstance : livingEntity.getActiveEffects()) {
                  this.connection.send(new ClientboundRemoveMobEffectPacket(vehicle.getId(), mobEffectInstance.getEffect()));
+@@ -2086,6 +_,11 @@
+     }
+ 
+     @Override
++    protected float getEnchantedDamage(Entity entity, ItemStack stack, float damage, DamageSource damageSource) {
++        return EnchantmentHelper.modifyDamage(this.level(), stack, entity, damageSource, damage);
++    }
++
++    @Override
+     public void onEquippedItemBroken(Item item, EquipmentSlot slot) {
+         super.onEquippedItemBroken(item, slot);
+         this.awardStat(Stats.ITEM_BROKEN.get(item));
 @@ -2129,7 +_,7 @@
      }
  

@@ -3530,6 +3530,10 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
      */
     void resetCooldown();
     // Paper end - attack cooldown API
+    
+    // Paper start - entity interactivity API
+    boolean canInteractWithEntity(Entity entity, double distance);
+    // Paper end - entity interactivity API
 
     // Paper start - client option API
     /**

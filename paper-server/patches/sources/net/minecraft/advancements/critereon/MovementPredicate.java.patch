@@ -1,0 +1,39 @@
+--- a/net/minecraft/advancements/critereon/MovementPredicate.java
++++ b/net/minecraft/advancements/critereon/MovementPredicate.java
+@@ -1,8 +_,10 @@
+ package net.minecraft.advancements.critereon;
+ 
++import javax.annotation.Nullable;
+ import com.mojang.serialization.Codec;
+ import com.mojang.serialization.codecs.RecordCodecBuilder;
+ import net.minecraft.util.Mth;
++import net.minecraft.world.entity.Entity;
+ 
+ public record MovementPredicate(
+     MinMaxBounds.Doubles x,
+@@ -75,17 +_,21 @@
+     }
+ 
+     public boolean matches(double x, double y, double z, double fallDistance) {
+-        if (this.x.matches(x) && this.y.matches(y) && this.z.matches(z)) {
++        return this.matches(x, y, z, fallDistance, null);
++    }
++
++    public boolean matches(double x, double y, double z, double fallDistance, @Nullable Entity entity) {
++        if (this.x.matches(x, entity) && this.y.matches(y, entity) && this.z.matches(z, entity)) {
+             double d = Mth.lengthSquared(x, y, z);
+-            if (!this.speed.matchesSqr(d)) {
++            if (!this.speed.matchesSqr(d, entity)) {
+                 return false;
+             } else {
+                 double d1 = Mth.lengthSquared(x, z);
+-                if (!this.horizontalSpeed.matchesSqr(d1)) {
++                if (!this.horizontalSpeed.matchesSqr(d1, entity)) {
+                     return false;
+                 } else {
+                     double abs = Math.abs(y);
+-                    return this.verticalSpeed.matches(abs) && this.fallDistance.matches(fallDistance);
++                    return this.verticalSpeed.matches(abs, entity) && this.fallDistance.matches(fallDistance, entity);
+                 }
+             }
+         } else {

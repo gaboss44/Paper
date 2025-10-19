@@ -27691,10 +27691,10 @@ index 49008b4cbaead8a66a93d2b0d4b50b335a6c3eed..f9c96bbdc54e68b9216b7f8662bfae03
      }
  
 diff --git a/net/minecraft/server/level/ServerPlayer.java b/net/minecraft/server/level/ServerPlayer.java
-index f1706da6a1290a49cfcfb567e68acd5872c527ad..dcf371aeb3696fbee72a8a7e7cbd7677a788819b 100644
+index 382131b5c9c2ef55d76d5942551516e1ea2119bc..4740dcdce1c19be53f532385ff251689336d0433 100644
 --- a/net/minecraft/server/level/ServerPlayer.java
 +++ b/net/minecraft/server/level/ServerPlayer.java
-@@ -193,7 +193,7 @@ import net.minecraft.world.scores.Team;
+@@ -192,7 +192,7 @@ import net.minecraft.world.scores.Team;
  import net.minecraft.world.scores.criteria.ObjectiveCriteria;
  import org.slf4j.Logger;
  
@@ -27703,7 +27703,7 @@ index f1706da6a1290a49cfcfb567e68acd5872c527ad..dcf371aeb3696fbee72a8a7e7cbd7677
      private static final Logger LOGGER = LogUtils.getLogger();
      private static final int NEUTRAL_MOB_DEATH_NOTIFICATION_RADII_XZ = 32;
      private static final int NEUTRAL_MOB_DEATH_NOTIFICATION_RADII_Y = 10;
-@@ -424,6 +424,36 @@ public class ServerPlayer extends Player {
+@@ -423,6 +423,36 @@ public class ServerPlayer extends Player {
      public @Nullable com.destroystokyo.paper.event.entity.PlayerNaturallySpawnCreaturesEvent playerNaturallySpawnedEvent; // Paper - PlayerNaturallySpawnCreaturesEvent
      public @Nullable org.bukkit.event.player.PlayerQuitEvent.QuitReason quitReason = null; // Paper - Add API for quit reason; there are a lot of changes to do if we change all methods leading to the event
  

@@ -1,0 +1,62 @@
+--- a/net/minecraft/world/entity/EquipmentSlot.java
++++ b/net/minecraft/world/entity/EquipmentSlot.java
+@@ -2,6 +_,7 @@
+ 
+ import io.netty.buffer.ByteBuf;
+ import java.util.List;
++import java.util.function.Supplier;
+ import java.util.function.IntFunction;
+ import net.minecraft.network.codec.ByteBufCodecs;
+ import net.minecraft.network.codec.StreamCodec;
+@@ -10,14 +_,14 @@
+ import net.minecraft.world.item.ItemStack;
+ 
+ public enum EquipmentSlot implements StringRepresentable {
+-    MAINHAND(EquipmentSlot.Type.HAND, 0, 0, "mainhand"),
+-    OFFHAND(EquipmentSlot.Type.HAND, 1, 5, "offhand"),
+-    FEET(EquipmentSlot.Type.HUMANOID_ARMOR, 0, 1, 1, "feet"),
+-    LEGS(EquipmentSlot.Type.HUMANOID_ARMOR, 1, 1, 2, "legs"),
+-    CHEST(EquipmentSlot.Type.HUMANOID_ARMOR, 2, 1, 3, "chest"),
+-    HEAD(EquipmentSlot.Type.HUMANOID_ARMOR, 3, 1, 4, "head"),
+-    BODY(EquipmentSlot.Type.ANIMAL_ARMOR, 0, 1, 6, "body"),
+-    SADDLE(EquipmentSlot.Type.SADDLE, 0, 1, 7, "saddle");
++    MAINHAND(EquipmentSlot.Type.HAND, 0, 0, "mainhand", () -> org.bukkit.inventory.EquipmentSlot.HAND),
++    OFFHAND(EquipmentSlot.Type.HAND, 1, 5, "offhand", () -> org.bukkit.inventory.EquipmentSlot.OFF_HAND),
++    FEET(EquipmentSlot.Type.HUMANOID_ARMOR, 0, 1, 1, "feet", () -> org.bukkit.inventory.EquipmentSlot.FEET),
++    LEGS(EquipmentSlot.Type.HUMANOID_ARMOR, 1, 1, 2, "legs", () -> org.bukkit.inventory.EquipmentSlot.LEGS),
++    CHEST(EquipmentSlot.Type.HUMANOID_ARMOR, 2, 1, 3, "chest", () -> org.bukkit.inventory.EquipmentSlot.CHEST),
++    HEAD(EquipmentSlot.Type.HUMANOID_ARMOR, 3, 1, 4, "head", () -> org.bukkit.inventory.EquipmentSlot.HEAD),
++    BODY(EquipmentSlot.Type.ANIMAL_ARMOR, 0, 1, 6, "body", () -> org.bukkit.inventory.EquipmentSlot.BODY),
++    SADDLE(EquipmentSlot.Type.SADDLE, 0, 1, 7, "saddle", () -> org.bukkit.inventory.EquipmentSlot.SADDLE);
+ 
+     public static final int NO_COUNT_LIMIT = 0;
+     public static final List<EquipmentSlot> VALUES = List.of(values());
+@@ -29,17 +_,23 @@
+     private final int countLimit;
+     private final int id;
+     private final String name;
++    private final Supplier<org.bukkit.inventory.EquipmentSlot> bukkitSlot;
+ 
+-    private EquipmentSlot(final EquipmentSlot.Type type, final int index, final int countLimit, final int id, final String name) {
++    private EquipmentSlot(final EquipmentSlot.Type type, final int index, final int countLimit, final int id, final String name, final Supplier<org.bukkit.inventory.EquipmentSlot> bukkitSlot) {
+         this.type = type;
+         this.index = index;
+         this.countLimit = countLimit;
+         this.id = id;
+         this.name = name;
+-    }
+-
+-    private EquipmentSlot(final EquipmentSlot.Type type, final int index, final int filterFlag, final String name) {
+-        this(type, index, 0, filterFlag, name);
++        this.bukkitSlot = bukkitSlot;
++    }
++
++    private EquipmentSlot(final EquipmentSlot.Type type, final int index, final int filterFlag, final String name,Supplier<org.bukkit.inventory.EquipmentSlot> bukkitSlot) {
++        this(type, index, 0, filterFlag, name, bukkitSlot);
++    }
++
++    public org.bukkit.inventory.EquipmentSlot asBukkit() {
++        return this.bukkitSlot.get();
+     }
+ 
+     public EquipmentSlot.Type getType() {
